@@ -13,7 +13,6 @@ import '../preparer/preparer_screen.dart';
 import '../rattrapages/rattrapages_screen.dart';
 import '../semaine/semaine_screen.dart';
 
-/// Cadre de l'app : écran courant, barre d'onglets, toast.
 class HomeShell extends StatelessWidget {
   const HomeShell({super.key});
 
@@ -151,7 +150,6 @@ class _TabBar extends StatelessWidget {
   }
 }
 
-/// Premier chargement de l'état depuis l'API, ou erreur avec « Réessayer ».
 class _Loading extends StatelessWidget {
   const _Loading({required this.status});
 

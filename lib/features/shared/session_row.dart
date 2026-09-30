@@ -10,7 +10,6 @@ import '../../data/models/models.dart';
 import '../../logic/app_state.dart';
 import '../../logic/labels.dart';
 
-/// Ligne de séance : heures, pastille, titre + sous-titre, tag de statut.
 class SessionRow extends StatelessWidget {
   const SessionRow({super.key, required this.session, required this.app, required this.onTap});
 

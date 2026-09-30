@@ -35,14 +35,13 @@ void main() {
       expect(app.students, ['ange', 'adje', 'sondo']);
       expect(app.history['ange'], hasLength(4));
       expect(app.decided.map((s) => s.id), ['s8', 's10']);
-      // d2 (Ange) non casée + Terminale C (Mamie Adjoua) non placée → 2 à caser.
       expect(app.todoCount, 2);
     });
 
     test('Adjé : jamais le week-end ni deux jours de suite', () async {
       final app = await loaded(FakeApi());
       expect(app.slotOn('adje', 5, app.week(0), 0), isNull);
-      expect(app.slotOn('adje', 1, app.week(0), 0), isNull); // cours lundi
+      expect(app.slotOn('adje', 1, app.week(0), 0), isNull);
     });
 
     test('pointer envoie le brouillon puis recharge', () async {
@@ -79,7 +78,6 @@ void main() {
     test('trajets : désactivés par défaut, séances bout à bout', () async {
       final app = await loaded(FakeApi());
       expect(app.travelEnabled, isFalse);
-      // Lundi, sortie 15h : Ange dès 15h sans trajet, 15h30 avec.
       expect(app.slotOn('ange', 0, [], 0)?.start, 900);
       app.travelEnabled = true;
       expect(app.slotOn('ange', 0, [], 0)?.start, 930);
@@ -107,7 +105,7 @@ void main() {
         respond: (r) => r.url.path.endsWith('/cancel') ? {'message': 'Rattrapage annulé · séance à recaser'} : null,
       );
       final app = await loaded(api);
-      final it = app.items().firstWhere((i) => i.key == 'd1'); // casée sur s5
+      final it = app.items().firstWhere((i) => i.key == 'd1');
       expect(await app.cancelRattrapage(it), 'Rattrapage annulé · séance à recaser');
       expect(api.writes, ['POST /api/rattrapages/d1/cancel']);
     });
@@ -123,6 +121,28 @@ void main() {
       expect(coll, isNot(contains('Adjé')));
       expect(app.programmeOf('ange', 0), contains('pour la semaine du 5 au 11 octobre'));
       expect(app.programmeOf('ange', 0), contains('– Dimanche 11 octobre : 9h – 11h'));
+    });
+
+    test('indisponibilités : élève (samedi après 12h) et répétiteur (dimanche avant 12h)', () async {
+      final state = jsonDecode(stateFixture) as Map<String, dynamic>;
+      for (final s in state['services'] as List) {
+        if (s['id'] == 'ange') {
+          s['unavailable'] = [
+            {'day': 5, 'start': 720, 'end': 1440},
+          ];
+        }
+      }
+      state['settings'] = {
+        'travel': false,
+        'unavailable': [
+          {'day': 6, 'start': 0, 'end': 720},
+        ],
+      };
+      final app = await loaded(FakeApi(respond: (r) => r.url.path == '/api/state' ? state : null));
+      expect(app.slotOn('ange', 5, [], 0), isA<Slot>().having((s) => s.end, 'fin', lessThanOrEqualTo(720)));
+      expect(app.slotOn('ange', 6, [], 0)?.start, 720);
+      expect(app.slotOn('ma', 6, [], 0)?.start, 840);
+      expect(app.ruleOf(app.svc('ange')), contains('indisponible le samedi après 12h'));
     });
 
     test('clé refusée : état en erreur avec message', () async {

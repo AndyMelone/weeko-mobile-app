@@ -24,7 +24,6 @@ class _Alert {
   final VoidCallback onTap;
 }
 
-/// Ligne affichée dans un jour : séance ou trajet entre deux séances.
 sealed class _DayRow {}
 
 class _SessionItem extends _DayRow {
@@ -58,7 +57,6 @@ class _Day {
   final String todayNote;
 }
 
-/// Écran 1 : Ma semaine (accueil).
 class SemaineScreen extends StatefulWidget {
   const SemaineScreen({super.key});
 
@@ -342,7 +340,6 @@ class _SemaineScreenState extends State<SemaineScreen> {
   }
 }
 
-/// Bloc « Aujourd'hui » : cadre accent, bandeau plein.
 class _TodayBlock extends StatelessWidget {
   const _TodayBlock({required this.child, required this.note});
 

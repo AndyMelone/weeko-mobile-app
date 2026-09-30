@@ -2,11 +2,8 @@ import 'dart:ui';
 
 import '../models/models.dart';
 
-// Conversion des réponses de weeko-api vers les modèles de l'app.
-
 typedef Json = Map<String, dynamic>;
 
-/// « #9B4630 » → Color(0xFF9B4630).
 Color colorOf(String hex) => Color(int.parse(hex.replaceFirst('#', ''), radix: 16) | 0xFF000000);
 
 Service serviceFromJson(Json j) => Service(
@@ -22,6 +19,7 @@ Service serviceFromJson(Json j) => Service(
   notBefore: j['notBefore'],
   notAfter: j['notAfter'],
   fixed: [for (final f in j['fixed'] as List) FixedSlot(day: f['day'], start: f['start'])],
+  unavailable: blocksFromJson(j['unavailable']),
   phone: j['phone'],
   phoneLabel: j['phoneLabel'],
 );
@@ -89,3 +87,7 @@ Json prepToJson(WeekPrep p) => {
 
 HistoryEntry historyFromJson(Json j) =>
     HistoryEntry(date: j['date'], time: j['time'], status: SessionStatus.values.byName(j['status']), motif: j['motif']);
+
+List<TimeBlock> blocksFromJson(dynamic list) => [
+  for (final b in (list as List?) ?? const []) TimeBlock(day: b['day'], start: b['start'], end: b['end']),
+];

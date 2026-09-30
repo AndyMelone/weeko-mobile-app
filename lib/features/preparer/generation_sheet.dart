@@ -14,9 +14,6 @@ import '../../core/widgets/misc.dart';
 import '../../data/models/models.dart';
 import '../../logic/app_state.dart';
 
-/// Aperçu affiché après « Générer le planning » : toute la semaine, séances
-/// Succès Group (collectif) et programme de chaque élève (individuel).
-/// Rien n'est enregistré ici. Retourne true si l'utilisateur valide.
 Future<bool?> showGenerationSheet(
   BuildContext context, {
   required AppState app,
@@ -55,7 +52,6 @@ class _GenerationSheet extends StatefulWidget {
   final int week;
   final String message;
 
-  /// Séances de l'aperçu (pas encore enregistrées).
   final List<Session> sessions;
   final ScrollController scroll;
 
@@ -191,7 +187,6 @@ class _GenerationSheetState extends State<_GenerationSheet> {
   }
 }
 
-/// Ligne « 15h30–17h30 · badge · titre ».
 class _SessionLine extends StatelessWidget {
   const _SessionLine({required this.app, required this.session, this.showDay = false});
 
@@ -228,7 +223,6 @@ class _SessionLine extends StatelessWidget {
   }
 }
 
-/// Carte avec icône « copier » en haut à droite (devient ✓ une fois copié).
 class _CopyCard extends StatefulWidget {
   const _CopyCard({required this.text, required this.child});
 

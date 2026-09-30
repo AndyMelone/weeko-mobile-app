@@ -19,7 +19,6 @@ import '../../logic/nav_state.dart';
 import '../shared/screen_header.dart';
 import 'add_student_form.dart';
 
-/// Écran 5 : Fiche élève.
 class EleveScreen extends StatelessWidget {
   const EleveScreen({super.key});
 
@@ -96,7 +95,6 @@ class EleveScreen extends StatelessWidget {
                     style: AppText.body(15, color: AppColors.neutral700),
                   ),
                 )
-              // Élève sélectionné supprimé entre-temps : on affiche le premier.
               : _Fiche(
                   app: app,
                   nav: nav,
@@ -108,7 +106,6 @@ class EleveScreen extends StatelessWidget {
   }
 }
 
-/// Appui long sur le nom d'un élève : confirmation puis suppression (archivage).
 Future<void> _confirmDelete(BuildContext context, AppState app, NavState nav, Service S) async {
   final ok = await showConfirmSheet(
     context,
@@ -299,7 +296,6 @@ class _Fiche extends StatelessWidget {
   }
 }
 
-/// Historique : les 3 dernières lignes, puis « Voir plus ».
 class _History extends StatefulWidget {
   const _History({super.key, required this.entries});
 

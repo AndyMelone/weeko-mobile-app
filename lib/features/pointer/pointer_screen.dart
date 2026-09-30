@@ -16,7 +16,6 @@ import '../../logic/app_state.dart';
 import '../../logic/nav_state.dart';
 import '../shared/screen_header.dart';
 
-/// Écran 3 : Pointer une séance.
 class PointerScreen extends StatefulWidget {
   const PointerScreen({super.key, required this.sessionId});
 
@@ -29,7 +28,6 @@ class PointerScreen extends StatefulWidget {
 class _PointerScreenState extends State<PointerScreen> {
   late PointerDraft _draft;
 
-  /// Statut choisi : faux pour une séance encore prévue (rien de présélectionné).
   late bool _chosen;
   final _motifCtrl = TextEditingController();
 
@@ -67,7 +65,6 @@ class _PointerScreenState extends State<PointerScreen> {
         : s.isRattrapage
         ? 'Le rattrapage sera à recaser dans Rattrapages.'
         : 'Une séance à rattraper sera créée pour ${app.titleOf(s)}, à caser dans Rattrapages (cette semaine ou plus tard).';
-    // Motif facultatif ; « qui était absent » requis pour une séance manquée.
     final canSave = _chosen && (!d.missed || d.who != null);
 
     return Column(

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text.dart';
 
-/// Pastille carrée couleur + code 2 lettres.
 class CodeBadge extends StatelessWidget {
   const CodeBadge({super.key, required this.code, required this.color, this.size = 36, this.fontSize = 14});
 
@@ -59,7 +58,6 @@ class Section extends StatelessWidget {
   }
 }
 
-/// Note en cadre pointillé.
 class DashedNote extends StatelessWidget {
   const DashedNote({
     super.key,
@@ -119,7 +117,6 @@ class DashedBorderPainter extends CustomPainter {
   bool shouldRepaint(DashedBorderPainter old) => old.color != color;
 }
 
-/// Divise une liste de widgets par un trait (bordure basse).
 class Bordered extends StatelessWidget {
   const Bordered({super.key, required this.children});
 

@@ -8,7 +8,6 @@ import '../../core/widgets/inputs.dart';
 import '../shared/screen_header.dart';
 import '../../logic/app_state.dart';
 
-/// Formulaire « Nouvel élève à domicile ».
 class AddStudentForm extends StatefulWidget {
   const AddStudentForm({super.key, required this.onCancel, required this.onSave});
 

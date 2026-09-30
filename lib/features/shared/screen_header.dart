@@ -23,7 +23,6 @@ class HeaderBar extends StatelessWidget {
   }
 }
 
-/// En-tête ‹ kicker + plage de dates ›.
 class WeekHeader extends StatelessWidget {
   const WeekHeader({super.key, required this.kicker, required this.label, required this.onPrev, required this.onNext});
 
@@ -55,7 +54,6 @@ class WeekHeader extends StatelessWidget {
   }
 }
 
-/// Pied fixe (bordure haute) pour le bouton principal.
 class FooterBar extends StatelessWidget {
   const FooterBar({super.key, required this.children});
 
@@ -73,7 +71,6 @@ class FooterBar extends StatelessWidget {
   }
 }
 
-/// Liste scrollable avec padding standard et espacement entre sections.
 class ScreenBody extends StatelessWidget {
   const ScreenBody({
     super.key,

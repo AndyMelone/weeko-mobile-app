@@ -17,7 +17,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(CupertinoPicker), findsNWidgets(2));
 
-    // Une heure plus tard, trente minutes plus loin.
     await tester.drag(find.byType(CupertinoPicker).first, const Offset(0, -44));
     await tester.pumpAndSettle();
     await tester.drag(find.byType(CupertinoPicker).last, const Offset(0, -44 * 30));

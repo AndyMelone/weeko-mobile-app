@@ -6,23 +6,18 @@ import '../data/demo_data.dart';
 
 enum AppScreen { semaine, preparer, pointer, rattrapages, eleve }
 
-/// État de navigation et d'interface (écran courant, semaine affichée, toast).
 class NavState extends ChangeNotifier {
   AppScreen screen = AppScreen.semaine;
 
-  /// Écran à retrouver en quittant « Pointer ».
   AppScreen back = AppScreen.semaine;
 
-  /// Semaine affichée dans « Ma semaine » (0 = semaine de démo).
   int week = 0;
 
-  /// Semaine affichée dans « Préparer » (0 = en cours).
   int prepWeek = 1;
   String? sessionId;
   String studentId = 'ange';
   bool addingStudent = false;
 
-  /// Jour vers lequel défiler dans « Ma semaine » (consommé par l'écran).
   ({int week, int day})? scrollTarget;
 
   String? toast;
@@ -61,7 +56,6 @@ class NavState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Ouvre « Ma semaine » sur le jour donné.
   void goDay(int w, int d) {
     week = w;
     screen = AppScreen.semaine;

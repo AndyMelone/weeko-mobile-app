@@ -20,7 +20,7 @@ void main() {
 
     await tester.tap(find.text('Élèves'));
     await tester.pump();
-    expect(find.text('Supprimer l’élève'), findsNothing); // plus de bouton en bas de fiche
+    expect(find.text('Supprimer l’élève'), findsNothing);
 
     await tester.ensureVisible(find.text('Sondo'));
     await tester.longPress(find.text('Sondo'));

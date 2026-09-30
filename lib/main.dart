@@ -16,7 +16,6 @@ void main() {
 class WeekoApp extends StatefulWidget {
   const WeekoApp({super.key, this.api});
 
-  /// Client injecté (tests). Par défaut : config de `.env.json`.
   final ApiClient? api;
 
   @override
@@ -38,7 +37,7 @@ class _WeekoAppState extends State<WeekoApp> {
         ChangeNotifierProvider.value(value: nav),
       ],
       child: MaterialApp(
-        title: 'Répétiteur',
+        title: 'Weeko',
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
         locale: const Locale('fr'),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-/// Icônes Lucide (trait 1.5), reprises du prototype.
 enum AppIcons {
   chevronLeft('<path d="m15 18-6-6 6-6"/>'),
   chevronRight('<path d="m9 18 6-6-6-6"/>'),

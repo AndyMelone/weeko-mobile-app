@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-/// Erreur renvoyée par l'API (ou réseau), avec un message affichable.
 class ApiException implements Exception {
   const ApiException(this.message, {this.statusCode});
 
@@ -13,7 +12,6 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
-/// Client HTTP de weeko-api. Ajoute la clé API à chaque requête.
 class ApiClient {
   ApiClient({required String baseUrl, required this.apiKey, http.Client? client})
     : _base = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl,
@@ -53,7 +51,6 @@ class ApiClient {
     return data;
   }
 
-  /// Corps JSON, ou null s'il est vide ou illisible (ex. page d'erreur HTML).
   static dynamic _decode(List<int> bytes) {
     if (bytes.isEmpty) return null;
     try {

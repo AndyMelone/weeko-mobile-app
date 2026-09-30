@@ -13,7 +13,6 @@ void main() {
     tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    // Presse-papiers simulé : on capture le texte copié.
     String? copied;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
       if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String?;
@@ -27,7 +26,6 @@ void main() {
     await tester.pump();
     final vertical = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down);
 
-    // Ange : 4 lignes d'historique importé → 3 affichées + « Voir plus (1) ».
     await tester.scrollUntilVisible(find.text('Voir plus (1)'), 200, scrollable: vertical);
     expect(find.text('Jeu. 24 sept. · 15h30–17h30'), findsNothing);
     await tester.tap(find.text('Voir plus (1)'));

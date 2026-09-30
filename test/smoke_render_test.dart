@@ -30,7 +30,6 @@ void main() {
     await tester.tap(find.text('Préparer').last);
     await tester.pump();
     expect(find.text('Générer le planning'), findsOneWidget);
-    // 1. Aperçu, puis Annuler : rien n'est enregistré.
     await tester.tap(find.text('Générer le planning'));
     await tester.pumpAndSettle();
     expect(find.text('Aperçu du 12 au 18 octobre'), findsOneWidget);
@@ -46,7 +45,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.writes, ['POST /api/weeks/1/preview']);
 
-    // 2. Aperçu, puis Valider : le planning est créé.
     await tester.tap(find.text('Générer le planning'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Valider le planning'));

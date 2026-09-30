@@ -17,7 +17,6 @@ import '../../logic/nav_state.dart';
 import '../shared/screen_header.dart';
 import 'generation_sheet.dart';
 
-/// Écran 2 : Préparer la semaine.
 class PreparerScreen extends StatelessWidget {
   const PreparerScreen({super.key});
 
@@ -87,6 +86,11 @@ class PreparerScreen extends StatelessWidget {
                         : 'Trajets non comptés : les séances peuvent s’enchaîner, rien après 21h30.',
                     style: AppText.body(13, color: AppColors.neutral700),
                   ),
+                  if (app.tutorUnavailable.isNotEmpty)
+                    Text(
+                      'Tes indisponibilités : ${app.tutorUnavailable.map((b) => '${dayNamesLower[b.day]} ${b.label}').join(', ')}.',
+                      style: AppText.body(13, color: AppColors.neutral700),
+                    ),
                 ],
               ),
               Section(
@@ -197,7 +201,6 @@ class PreparerScreen extends StatelessWidget {
             PrimaryButton(
               label: 'Générer le planning',
               onPressed: () async {
-                // 1. Aperçu (rien n'est enregistré).
                 final ({String message, List<Session> sessions}) draft;
                 try {
                   draft = await app.preview(w);
@@ -206,7 +209,6 @@ class PreparerScreen extends StatelessWidget {
                   return;
                 }
                 if (!context.mounted) return;
-                // 2. Récap : collectif / individuel, puis Valider ou Annuler.
                 final ok = await showGenerationSheet(
                   context,
                   app: app,
@@ -215,7 +217,6 @@ class PreparerScreen extends StatelessWidget {
                   sessions: draft.sessions,
                 );
                 if (ok != true) return;
-                // 3. Validation : le planning est créé.
                 try {
                   final msg = await app.generate(w);
                   nav.setWeek(w);
@@ -236,7 +237,6 @@ class PreparerScreen extends StatelessWidget {
 class _OffRow extends StatelessWidget {
   const _OffRow({required this.label, required this.value, required this.onChanged, required this.fromWork});
 
-  /// Trajet depuis le travail (0 si trajets non comptés).
   final int fromWork;
 
   final String label;
@@ -264,7 +264,6 @@ class _OffRow extends StatelessWidget {
   }
 }
 
-/// Séances Succès Group d'une classe : un jour et des heures de début et de fin par séance.
 class _ClassTimes extends StatelessWidget {
   const _ClassTimes({
     required this.site,
@@ -277,14 +276,12 @@ class _ClassTimes extends StatelessWidget {
   final Service site;
   final String name;
 
-  /// Null : ancienne préparation, [autoCount] séances placées par le planning.
   final List<ClassTime>? times;
   final int autoCount;
   final ValueChanged<List<ClassTime>> onChanged;
 
   static const _maxPerWeek = 7;
 
-  /// Nouvelle séance : jour suivant la dernière, 18h–20h30 en semaine, 8h–12h le week-end.
   ClassTime _next(List<ClassTime> ts) {
     final d = ts.isEmpty ? 0 : (ts.last.day + 1) % 7;
     return d < 5 ? (day: d, start: 1080, end: 1230) : (day: d, start: 480, end: 720);

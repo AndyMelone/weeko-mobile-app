@@ -4,8 +4,6 @@ import '../theme/app_colors.dart';
 import '../theme/app_text.dart';
 import 'buttons.dart';
 
-/// Confirmation en bottom sheet (l'app n'utilise pas de popup).
-/// Retourne true si l'action est confirmée.
 Future<bool> showConfirmSheet(
   BuildContext context, {
   required String title,

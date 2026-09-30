@@ -6,8 +6,6 @@ import '../../core/utils/formats.dart';
 import '../../data/models/models.dart';
 import '../../logic/app_state.dart';
 
-/// Partage la séance en .ics (fuseau Africa/Abidjan, rappel 45 min avant),
-/// pour l'ajouter à l'agenda du téléphone.
 Future<void> shareSessionIcs(AppState app, Session s) async {
   final dt = dateOf(s.week, s.day);
   String p(int n) => n.toString().padLeft(2, '0');
@@ -18,7 +16,7 @@ Future<void> shareSessionIcs(AppState app, Session s) async {
   final ics = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Repetiteur//FR',
+    'PRODID:-//Weeko//FR',
     'BEGIN:VEVENT',
     'UID:${s.id}@repetiteur',
     'DTSTART;TZID=Africa/Abidjan:${stamp(s.start)}',

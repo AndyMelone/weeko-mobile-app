@@ -1,6 +1,5 @@
 import 'package:flutter/services.dart';
 
-/// Charge les polices de l'app (sinon la police de test, plus large, déborde).
 Future<void> loadAppFonts() async {
   for (final (family, files) in [
     ('Barlow', ['Barlow-Regular', 'Barlow-Medium', 'Barlow-Bold']),

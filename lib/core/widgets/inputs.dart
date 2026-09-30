@@ -6,7 +6,6 @@ import '../theme/app_text.dart';
 import '../utils/formats.dart';
 import 'buttons.dart';
 
-/// Option d'un segmenté ou d'une rangée de jours.
 class SegOption {
   const SegOption({
     required this.label,
@@ -31,7 +30,6 @@ class SegOption {
   final bool enabled;
 }
 
-/// Segmenté à colonnes égales (Normal / 1 séance / Absent, jours de la semaine…).
 class Segmented extends StatelessWidget {
   const Segmented({super.key, required this.options, this.height = 44, this.fontSize = 14});
 
@@ -92,11 +90,9 @@ class _SegCell extends StatelessWidget {
   }
 }
 
-/// Champ heure (équivalent `input type=time`) : ouvre deux roues heures / minutes.
 class TimeField extends StatelessWidget {
   const TimeField({super.key, required this.value, required this.onChanged, this.width, this.placeholder = '--:--'});
 
-  /// Format « HH:mm », vide = aucune valeur.
   final String value;
   final ValueChanged<String> onChanged;
   final double? width;
@@ -134,7 +130,6 @@ class TimeField extends StatelessWidget {
   }
 }
 
-/// Champ texte au style `.input`.
 class AppTextField extends StatelessWidget {
   const AppTextField({super.key, required this.controller, this.hint, this.keyboardType, this.onChanged});
 
@@ -169,7 +164,6 @@ class AppTextField extends StatelessWidget {
   }
 }
 
-/// Libellé de champ (13px neutral-700) au-dessus d'un contrôle.
 class FieldLabel extends StatelessWidget {
   const FieldLabel({super.key, required this.label, required this.child, this.fontSize = 13, this.gap = 6});
 
@@ -191,11 +185,9 @@ class FieldLabel extends StatelessWidget {
   }
 }
 
-/// Roues heures (0–23) et minutes (0–59), en boucle.
 class _TimeWheels extends StatefulWidget {
   const _TimeWheels({required this.initial});
 
-  /// Minutes depuis minuit.
   final int initial;
 
   @override

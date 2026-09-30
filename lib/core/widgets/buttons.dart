@@ -4,7 +4,6 @@ import '../theme/app_colors.dart';
 import '../theme/app_text.dart';
 import 'app_icon.dart';
 
-/// Surface tactile sans arrondi, avec fond au survol / appui.
 class Tap extends StatelessWidget {
   const Tap({
     super.key,
@@ -142,7 +141,6 @@ class GhostButton extends StatelessWidget {
   }
 }
 
-/// Bouton carré 44×44 à contour (chevrons, stepper, retour).
 class SquareIconButton extends StatelessWidget {
   const SquareIconButton({
     super.key,

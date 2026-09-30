@@ -8,10 +8,8 @@ import '../data/api/api_client.dart';
 import '../data/api/json.dart';
 import '../data/models/models.dart';
 
-/// Heure limite : rien après 21h30.
 const _dayEnd = 1290;
 
-/// Élément de l'écran Rattrapages : séance due ou séance Succès Group non placée.
 class RattItem {
   const RattItem({
     required this.key,
@@ -34,13 +32,11 @@ class RattItem {
   final String title;
   final String detail;
 
-  /// Libellé du créneau casé, null si pas encore casé.
   final String? placed;
 
   bool get isDue => due != null;
 }
 
-/// Choix d'un créneau dans Rattrapages : une proposition ou un jour manuel.
 sealed class SlotChoice {
   const SlotChoice();
 }
@@ -79,24 +75,18 @@ class StudentForm {
   String notBefore = '';
   String notAfter = '';
 
-  /// Jour → heure de début « HH:mm ».
   List<({int day, String time})> fixed = [];
 }
 
 enum LoadStatus { loading, ready, error }
 
-/// Heure de sortie du travail par défaut, lun.–ven. (identique à l'API).
 const _defaultOff = ['15:00', '15:00', '18:00', '15:00', '16:00'];
 
-/// Cache local de l'état de weeko-api. Les lectures et le solveur (propositions,
-/// raisons) restent locaux ; les modifications passent par l'API, puis l'état
-/// est rechargé.
 class AppState extends ChangeNotifier {
   AppState(this.api, {this.onError});
 
   final ApiClient api;
 
-  /// Erreur d'une synchronisation en arrière-plan (préparation de semaine).
   final void Function(String message)? onError;
 
   LoadStatus status = LoadStatus.loading;
@@ -111,8 +101,9 @@ class AppState extends ChangeNotifier {
   final Map<int, WeekPrep> preps = {};
   final Set<int> generated = {};
 
-  /// Compter les trajets (réglage global de l'API). Désactivé : séances bout à bout.
   bool travelEnabled = false;
+
+  List<TimeBlock> tutorUnavailable = [];
   Future<void> load() async {
     try {
       _apply(await api.get('/state') as Json);
@@ -142,7 +133,6 @@ class AppState extends ChangeNotifier {
     students = List<String>.from(j['students']);
     sessions = [for (final x in j['sessions'] as List) sessionFromJson(x)];
     dues = [for (final x in j['dues'] as List) dueFromJson(x)];
-    // Les préparations en cours d'envoi gardent la version locale.
     final local = {for (final w in _prepTimers.keys) w: preps[w]!};
     preps
       ..clear()
@@ -152,6 +142,7 @@ class AppState extends ChangeNotifier {
       ..clear()
       ..addAll(List<int>.from(j['generated']));
     travelEnabled = (j['settings'] as Map?)?['travel'] == true;
+    tutorUnavailable = blocksFromJson((j['settings'] as Map?)?['unavailable']);
     history
       ..clear()
       ..addAll({
@@ -160,10 +151,8 @@ class AppState extends ChangeNotifier {
       });
   }
 
-  /// Modification en cours (évite les doubles envois).
   bool busy = false;
 
-  /// Envoie une modification puis recharge l'état. Retourne la réponse.
   Future<Json> _mutate(Future<dynamic> Function() call) async {
     if (busy) throw const ApiException('Opération en cours…');
     busy = true;
@@ -191,10 +180,8 @@ class AppState extends ChangeNotifier {
 
   WeekPrep prepOf(int w) => preps[w] ?? defaultPrep();
 
-  /// Heure de sortie du travail (minutes), null le week-end ou si vide.
   int? off(int day, int w) => day < 5 ? parseTime(prepOf(w).off[day]) : null;
 
-  /// Séances fixes du planning de base (« déjà décidées »).
   List<Session> get decided => week(0).where((s) => s.base && s.fixed).toList();
 
   Session? sessionById(String? id) => id == null ? null : sessions.where((s) => s.id == id).firstOrNull;
@@ -203,7 +190,6 @@ class AppState extends ChangeNotifier {
 
   String whoLabel(Due u) => u.who == Who.moi ? 'moi absent' : (isEleve(u.svc) ? 'élève absent' : 'classe absente');
 
-  /// Durée de trajet entre deux séances consécutives (0 si trajets non comptés).
   int travel(({String svc}) a, ({String svc}) b) {
     if (!travelEnabled) return 0;
     if (isEleve(a.svc) && isEleve(b.svc)) return 10;
@@ -213,10 +199,13 @@ class AppState extends ChangeNotifier {
 
   int get fromWork => travelEnabled ? 30 : 0;
 
-  /// Active ou non le calcul des trajets (pris en compte aux prochaines générations).
   Future<void> setTravel(bool v) => _mutate(() => api.patch('/settings', {'travel': v}));
 
-  /// Premier créneau possible pour [svcId] le jour [d] de la semaine [w].
+  List<TimeBlock> blocksOn(String svcId, int d) =>
+      [...tutorUnavailable, ...svc(svcId).unavailable].where((b) => b.day == d).toList();
+
+  bool _blocked(String svcId, int d, int st, int en) => blocksOn(svcId, d).any((b) => st < b.end && en > b.start);
+
   Slot? slotOn(String svcId, int d, List<Session> ss, int w) {
     final o = off(d, w);
     final day = ss.where((s) => s.day == d && s.status != SessionStatus.manquee).toList()
@@ -225,15 +214,17 @@ class AppState extends ChangeNotifier {
     if (S.isEleve) {
       if (S.noWeekend && d >= 5) return null;
       if (S.exDays.contains(d)) return null;
-      // Jamais le même élève deux jours de suite.
       if (ss.any((s) => s.svc == svcId && s.status != SessionStatus.manquee && (s.day - d).abs() <= 1)) return null;
       final earliest = max(o != null ? o + fromWork : 480, S.notBefore ?? 0);
       final latest = min(_dayEnd, S.notAfter ?? _dayEnd);
-      final cands = [earliest, ...day.map((s) => s.end + travel((svc: s.svc), (svc: svcId)))];
+      final cands = [
+        earliest,
+        ...day.map((s) => s.end + travel((svc: s.svc), (svc: svcId))),
+        ...blocksOn(svcId, d).map((b) => b.end),
+      ]..sort();
       for (final c in cands) {
         final st = max(c, earliest), en = st + 120;
-        if (en > latest) continue;
-        // Un élève peut passer avant Succès Group, jamais après.
+        if (en > latest || _blocked(svcId, d, st, en)) continue;
         if (day.any((s) => !isEleve(s.svc) && s.start < st)) continue;
         final fits = day.every((s) {
           final t = travel((svc: s.svc), (svc: svcId));
@@ -243,10 +234,10 @@ class AppState extends ChangeNotifier {
       }
       return null;
     }
-    // Succès Group : 18h–20h30 en semaine ; 8h–12h ou 14h–18h le week-end.
     final wins = d < 5 ? const [(1080, 1230)] : const [(480, 720), (840, 1080)];
     for (final (st, en) in wins) {
       if (o != null && o + fromWork > st) continue;
+      if (_blocked(svcId, d, st, en)) continue;
       final fits = day.every((s) {
         final t = travelEnabled && s.svc != svcId ? 30 : 0;
         return s.end + t <= st || (!isEleve(s.svc) && en + t <= s.start);
@@ -264,7 +255,6 @@ class AppState extends ChangeNotifier {
     ];
   }
 
-  /// Propositions pour la semaine suivante quand elle n'est pas encore générée.
   List<Slot> _nextWeekFallback(String svcId, int w0) {
     final w = w0 + 1;
     if (!isEleve(svcId)) {
@@ -272,13 +262,14 @@ class AppState extends ChangeNotifier {
         Slot(week: w, day: 0, start: 1080, end: 1230),
         Slot(week: w, day: 1, start: 1080, end: 1230),
         Slot(week: w, day: 5, start: 480, end: 720),
-      ];
+      ].where((s) => !_blocked(svcId, s.day, s.start, s.end)).toList();
     }
     final out = <Slot>[];
     final sunday = week(w0).any((s) => s.svc == svcId && s.day == 6);
     for (var d = 0; d < 5 && out.length < 2; d++) {
       if (d == 0 && sunday) continue;
       final st = (off(d, w) ?? 900) + fromWork;
+      if (svc(svcId).exDays.contains(d) || _blocked(svcId, d, st, st + 120)) continue;
       if (st + 120 <= _dayEnd) out.add(Slot(week: w, day: d, start: st, end: st + 120));
     }
     return out;
@@ -291,7 +282,6 @@ class AppState extends ChangeNotifier {
     return [...a, ...b].take(3).toList();
   }
 
-  /// Raison pour laquelle aucun créneau n'est possible le jour [d].
   String reason(RattItem it, int d) {
     final S = svc(it.svc);
     if (S.isEleve) {
@@ -300,6 +290,10 @@ class AppState extends ChangeNotifier {
       if (week(it.week).any((s) => s.svc == it.svc && s.status != SessionStatus.manquee && (s.day - d).abs() <= 1)) {
         return '${S.first} a déjà cours ce jour-là, la veille ou le lendemain.';
       }
+      final blocks = blocksOn(it.svc, d);
+      if (blocks.isNotEmpty) {
+        return 'Pas de créneau de 2 h libre ce jour-là (indisponible ${blocks.map((b) => b.label).join(', ')}).';
+      }
       return travelEnabled
           ? 'Pas de créneau de 2 h libre ce jour-là (trajets, fin à 21h30).'
           : 'Pas de créneau de 2 h libre ce jour-là (fin à 21h30).';
@@ -307,7 +301,6 @@ class AppState extends ChangeNotifier {
     return 'Pas de créneau Succès Group libre ce jour-là.';
   }
 
-  /// Séances Succès Group demandées mais non placées pour la classe [c].
   int unplaced(String c, int w, [List<Session>? ss]) {
     if (!generated.contains(w) || prepOf(w).times.containsKey(c)) return 0;
     final placed = week(w, ss).where((s) => s.cls == c && !s.isRattrapage).length;
@@ -349,20 +342,17 @@ class AppState extends ChangeNotifier {
         }
       }
     }
-    // Non casés en premier (tri stable).
     return [...out.where((i) => i.placed == null), ...out.where((i) => i.placed != null)];
   }
 
   int get todoCount => items().where((i) => i.placed == null).length;
 
-  /// Résout un choix en créneau, null si invalide.
   Slot? resolveChoice(RattItem it, SlotChoice? choice) => switch (choice) {
     ProposalChoice(:final index) => proposals(it).elementAtOrNull(index),
     DayChoice(:final day) => slots(it.svc, onlyDay: day, w: it.week).firstOrNull,
     null => null,
   };
 
-  /// Case le créneau choisi. Retourne le texte du toast, null si le choix est vide.
   Future<String?> place(RattItem it, SlotChoice? choice) async {
     final body = switch (choice) {
       ProposalChoice(:final index) => {'proposal': index},
@@ -377,7 +367,6 @@ class AppState extends ChangeNotifier {
 
   final Map<int, Timer> _prepTimers = {};
 
-  /// Modifie la préparation en local, puis l'envoie à l'API (regroupé).
   void updatePrep(int w, void Function(WeekPrep p) fn) {
     fn(preps.putIfAbsent(w, defaultPrep));
     notifyListeners();
@@ -396,24 +385,20 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Envoie tout de suite les préparations en attente.
   Future<void> flushPrep() => Future.wait([for (final w in _prepTimers.keys.toList()) _sendPrep(w)]);
 
-  /// Aperçu de la génération de la semaine [w] : rien n'est enregistré.
   Future<({String message, List<Session> sessions})> preview(int w) async {
     await flushPrep();
     final res = await api.post('/weeks/$w/preview') as Json;
     return (message: res['message'] as String, sessions: [for (final x in res['sessions'] as List) sessionFromJson(x)]);
   }
 
-  /// Génère le planning de la semaine [w]. Retourne le texte du toast.
   Future<String> generate(int w) async {
     await flushPrep();
     final res = await _mutate(() => api.post('/weeks/$w/generate'));
     return res['message'] as String;
   }
 
-  /// Enregistre le pointage. Retourne le texte du toast.
   Future<String> savePointer(String sessionId, PointerDraft d) async {
     final res = await _mutate(
       () => api.post('/sessions/${Uri.encodeComponent(sessionId)}/pointer', {
@@ -426,7 +411,6 @@ class AppState extends ChangeNotifier {
     return res['message'] as String;
   }
 
-  /// Ajoute un élève. Retourne son id.
   Future<String> addStudent(StudentForm f) async {
     final res = await _mutate(
       () => api.post('/students', {
@@ -444,13 +428,11 @@ class AppState extends ChangeNotifier {
     return res['id'] as String;
   }
 
-  /// Annule le rattrapage casé de [it] : la séance due repasse « à caser ».
   Future<String> cancelRattrapage(RattItem it) async {
     final res = await _mutate(() => api.post('/rattrapages/${Uri.encodeComponent(it.key)}/cancel'));
     return res['message'] as String;
   }
 
-  /// Supprime (archive) un élève : il disparaît du planning, rien n'est effacé côté serveur.
   Future<void> deleteStudent(String id) => _mutate(() => api.delete('/students/${Uri.encodeComponent(id)}'));
 
   @override
@@ -462,7 +444,6 @@ class AppState extends ChangeNotifier {
     super.dispose();
   }
 
-  /// Message du programme de l'élève [id] pour la semaine [w] ([ss] : aperçu).
   String programmeOf(String id, int w, [List<Session>? ss]) {
     final S = svc(id);
     final mine = week(w, ss).where((s) => s.svc == id && s.status != SessionStatus.manquee).toList()
@@ -479,7 +460,6 @@ class AppState extends ChangeNotifier {
   List<Session> sortedWeek(int w, [List<Session>? ss]) =>
       week(w, ss)..sort((a, b) => a.day != b.day ? a.day - b.day : a.start - b.start);
 
-  /// Récap de toute la semaine, jour par jour.
   String recapOf(int w, [List<Session>? preview]) {
     final ss = sortedWeek(w, preview);
     final out = ['Planning ${weekSpan(w)}'];
@@ -496,7 +476,6 @@ class AppState extends ChangeNotifier {
     return out.join('\n');
   }
 
-  /// Séances Succès Group de la semaine, par site.
   String collectiveOf(int w, [List<Session>? preview]) {
     final ss = sortedWeek(w, preview).where((s) => s.cls != null).toList();
     final out = ['Succès Group · ${weekSpan(w)}'];
@@ -514,7 +493,6 @@ class AppState extends ChangeNotifier {
     return out.join('\n');
   }
 
-  /// Règle affichée sur la fiche élève.
   String ruleOf(Service S) {
     final ex = S.exDays.where((d) => !(S.noWeekend && d >= 5)).toList();
     return '${plural(S.perWeek, 'séance')} de 2 h par semaine'
@@ -522,6 +500,7 @@ class AppState extends ChangeNotifier {
         '${ex.isNotEmpty ? ' · jamais le ${ex.map((d) => dayNamesLower[d]).join(', ')}' : ''}'
         '${S.notBefore != null ? ' · pas avant ${fmt(S.notBefore!)}' : ''}'
         '${S.notAfter != null ? ' · fini avant ${fmt(S.notAfter!)}' : ''}'
-        '${S.fixed.isNotEmpty ? ' · fixe le ${S.fixed.map((f) => '${dayNamesLower[f.day]} ${fmt(f.start)}').join(', ')}' : ''}';
+        '${S.fixed.isNotEmpty ? ' · fixe le ${S.fixed.map((f) => '${dayNamesLower[f.day]} ${fmt(f.start)}').join(', ')}' : ''}'
+        '${S.unavailable.isNotEmpty ? ' · indisponible le ${S.unavailable.map((b) => '${dayNamesLower[b.day]} ${b.label}').join(', ')}' : ''}';
   }
 }

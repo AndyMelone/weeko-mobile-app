@@ -46,3 +46,4 @@ app.*.map.json
 
 # Config API (clé)
 .env.json
+.env.prod.json

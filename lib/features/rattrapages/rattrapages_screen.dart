@@ -17,7 +17,6 @@ import '../../logic/nav_state.dart';
 import '../shared/screen_header.dart';
 import 'ics_export.dart';
 
-/// Écran 4 : Rattrapages.
 class RattrapagesScreen extends StatefulWidget {
   const RattrapagesScreen({super.key});
 
@@ -26,7 +25,6 @@ class RattrapagesScreen extends StatefulWidget {
 }
 
 class _RattrapagesScreenState extends State<RattrapagesScreen> {
-  /// Choix de créneau par élément.
   final _sel = <String, SlotChoice>{};
 
   @override
@@ -176,7 +174,6 @@ class _ItemCard extends StatelessWidget {
                   ),
                 ],
               ),
-              // Pas encore pointé : on peut l'annuler et le remettre à caser.
               if (it.isDue && it.placedSession!.status == SessionStatus.prevue) ...[
                 const SizedBox(height: 8),
                 SecondaryButton(label: 'Annuler le rattrapage', icon: AppIcons.x, onPressed: onCancel),

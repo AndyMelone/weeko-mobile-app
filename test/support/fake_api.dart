@@ -5,11 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:weeko/data/api/api_client.dart';
 
-/// Réponse de `GET /state` capturée sur weeko-api après `npm run db:seed`.
 final stateFixture = File('test/fixtures/state.json').readAsStringSync();
 
-/// Fausse API : sert la fixture pour /state, enregistre les requêtes et
-/// répond aux modifications avec [respond] (par défaut `{message: 'ok'}`).
 class FakeApi {
   FakeApi({this.respond});
 
@@ -28,7 +25,6 @@ class FakeApi {
     }),
   );
 
-  /// Requêtes hors `GET /state`, sous la forme « POST /api/... ».
   List<String> get writes => [
     for (final r in requests)
       if (r.url.path != '/api/state') '${r.method} ${r.url.path}',
@@ -37,7 +33,6 @@ class FakeApi {
   static http.Response _json(Object? body) =>
       http.Response.bytes(utf8.encode(jsonEncode(body)), 200, headers: {'content-type': 'application/json'});
 
-  /// Aperçu de génération : les séances de la semaine de démo, recopiées en semaine [week].
   static Map<String, dynamic> previewOf(String week) {
     final w = int.parse(week);
     final sessions = [

@@ -1,5 +1,7 @@
 import 'dart:ui';
 
+import '../../core/utils/formats.dart';
+
 enum ServiceKind { eleve, site }
 
 enum SessionStatus { prevue, faite, manquee, rattrapee }
@@ -17,7 +19,20 @@ class FixedSlot {
   final int start;
 }
 
-/// Élève à domicile ou site Succès Group.
+class TimeBlock {
+  const TimeBlock({required this.day, required this.start, required this.end});
+
+  final int day;
+  final int start;
+  final int end;
+
+  String get label => start <= 0
+      ? 'avant ${fmt(end)}'
+      : end >= 1440
+      ? 'après ${fmt(start)}'
+      : range(start, end);
+}
+
 class Service {
   const Service({
     required this.id,
@@ -32,6 +47,7 @@ class Service {
     this.notBefore,
     this.notAfter,
     this.fixed = const [],
+    this.unavailable = const [],
     this.phone = '',
     this.phoneLabel = '',
   }) : first = first ?? name;
@@ -48,8 +64,8 @@ class Service {
   final int? notBefore;
   final int? notAfter;
   final List<FixedSlot> fixed;
+  final List<TimeBlock> unavailable;
 
-  /// Numéro WhatsApp en chiffres (ex. 2250700000001).
   final String phone;
   final String phoneLabel;
 
@@ -63,11 +79,9 @@ class SchoolClass {
   final String name;
   final String siteId;
 
-  /// Séances par défaut dans la préparation d'une semaine.
   final int defaultCount;
 }
 
-/// Séance planifiée. Heures en minutes depuis minuit.
 class Session {
   const Session({
     required this.id,
@@ -102,7 +116,6 @@ class Session {
   final bool noRedo;
   final bool fixed;
 
-  /// Issue du planning de base (démo) : conservée d'une génération à l'autre.
   final bool base;
 
   bool get isRattrapage => kind == SessionKind.rattrapage;
@@ -134,7 +147,6 @@ class Session {
   );
 }
 
-/// Séance due (manquée, à rattraper).
 class Due {
   const Due({
     required this.id,
@@ -152,7 +164,6 @@ class Due {
   final String svc;
   final String? cls;
 
-  /// Date de la séance manquée, ex. « jeu. 1 oct. ».
   final String from;
   final Who who;
   final String motif;
@@ -173,7 +184,6 @@ class Due {
   );
 }
 
-/// Créneau Succès Group choisi dans Préparer. Heures en minutes depuis minuit.
 typedef ClassTime = ({int day, int start, int end});
 
 class WeekPrep {
@@ -187,17 +197,13 @@ class WeekPrep {
        changes = changes ?? {},
        include = include ?? {};
 
-  /// Heure de sortie du travail lun.–ven., format « HH:mm » (vide = pas de travail).
   final List<String> off;
 
-  /// Nombre de séances Succès Group placées automatiquement (classes sans [times]).
   final Map<String, int> counts;
 
-  /// Créneaux Succès Group choisis par classe. Présent : remplace [counts].
   final Map<String, List<ClassTime>> times;
   final Map<String, WeekChange> changes;
 
-  /// Rattrapages inclus (absent = inclus).
   final Map<String, bool> include;
 
   WeekPrep copy() => WeekPrep(
@@ -211,7 +217,6 @@ class WeekPrep {
   );
 }
 
-/// Ligne d'historique antérieure à la démo.
 class HistoryEntry {
   const HistoryEntry({required this.date, required this.time, required this.status, this.motif});
 
@@ -221,7 +226,6 @@ class HistoryEntry {
   final String? motif;
 }
 
-/// Créneau proposé par le solveur.
 class Slot {
   const Slot({required this.week, required this.day, required this.start, required this.end});
 
