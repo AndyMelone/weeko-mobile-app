@@ -1,0 +1,437 @@
+{
+ "services": [
+  {
+   "id": "ange",
+   "name": "Ange Kra",
+   "first": "Ange",
+   "code": "AK",
+   "color": "#9B4630",
+   "kind": "eleve",
+   "perWeek": 2,
+   "noWeekend": false,
+   "exDays": [],
+   "notBefore": null,
+   "notAfter": null,
+   "phone": "2250700000001",
+   "phoneLabel": "+225 07 00 00 00 01",
+   "position": 0,
+   "fixed": []
+  },
+  {
+   "id": "adje",
+   "name": "Adjé",
+   "first": "Adjé",
+   "code": "AD",
+   "color": "#337344",
+   "kind": "eleve",
+   "perWeek": 2,
+   "noWeekend": true,
+   "exDays": [],
+   "notBefore": null,
+   "notAfter": null,
+   "phone": "2250700000002",
+   "phoneLabel": "+225 07 00 00 00 02",
+   "position": 1,
+   "fixed": []
+  },
+  {
+   "id": "sondo",
+   "name": "Sondo",
+   "first": "Sondo",
+   "code": "SO",
+   "color": "#814A8D",
+   "kind": "eleve",
+   "perWeek": 2,
+   "noWeekend": false,
+   "exDays": [],
+   "notBefore": null,
+   "notAfter": null,
+   "phone": "2250700000003",
+   "phoneLabel": "+225 07 00 00 00 03",
+   "position": 2,
+   "fixed": []
+  },
+  {
+   "id": "ma",
+   "name": "Mamie Adjoua",
+   "first": "Mamie Adjoua",
+   "code": "MA",
+   "color": "#326893",
+   "kind": "site",
+   "perWeek": 0,
+   "noWeekend": false,
+   "exDays": [],
+   "notBefore": null,
+   "notAfter": null,
+   "phone": "",
+   "phoneLabel": "",
+   "position": 3,
+   "fixed": []
+  },
+  {
+   "id": "ng",
+   "name": "Niangon",
+   "first": "Niangon",
+   "code": "NG",
+   "color": "#8A5F18",
+   "kind": "site",
+   "perWeek": 0,
+   "noWeekend": false,
+   "exDays": [],
+   "notBefore": null,
+   "notAfter": null,
+   "phone": "",
+   "phoneLabel": "",
+   "position": 4,
+   "fixed": []
+  }
+ ],
+ "classes": [
+  {
+   "id": "c1",
+   "name": "Terminale D",
+   "siteId": "ma",
+   "defaultCount": 2,
+   "position": 0
+  },
+  {
+   "id": "c2",
+   "name": "Terminale C",
+   "siteId": "ma",
+   "defaultCount": 1,
+   "position": 1
+  },
+  {
+   "id": "c3",
+   "name": "Terminale D",
+   "siteId": "ng",
+   "defaultCount": 2,
+   "position": 2
+  },
+  {
+   "id": "c4",
+   "name": "Terminale C",
+   "siteId": "ng",
+   "defaultCount": 0,
+   "position": 3
+  }
+ ],
+ "students": [
+  "ange",
+  "adje",
+  "sondo"
+ ],
+ "sessions": [
+  {
+   "id": "s1",
+   "week": 0,
+   "day": 0,
+   "start": 930,
+   "end": 1050,
+   "svc": "adje",
+   "cls": null,
+   "status": "prevue",
+   "kind": "normal",
+   "dueId": null,
+   "who": null,
+   "motif": "",
+   "noRedo": false,
+   "fixed": false,
+   "base": true
+  },
+  {
+   "id": "s2",
+   "week": 0,
+   "day": 0,
+   "start": 1080,
+   "end": 1230,
+   "svc": "ma",
+   "cls": "c1",
+   "status": "prevue",
+   "kind": "normal",
+   "dueId": null,
+   "who": null,
+   "motif": "",
+   "noRedo": false,
+   "fixed": false,
+   "base": true
+  },
+  {
+   "id": "s3",
+   "week": 0,
+   "day": 1,
+   "start": 930,
+   "end": 1050,
+   "svc": "ange",
+   "cls": null,
+   "status": "prevue",
+   "kind": "normal",
+   "dueId": null,
+   "who": null,
+   "motif": "",
+   "noRedo": false,
+   "fixed": false,
+   "base": true
+  },
+  {
+   "id": "s4",
+   "week": 0,
+   "day": 1,
+   "start": 1060,
+   "end": 1180,
+   "svc": "sondo",
+   "cls": null,
+   "status": "prevue",
+   "kind": "normal",
+   "dueId": null,
+   "who": null,
+   "motif": "",
+   "noRedo": false,
+   "fixed": false,
+   "base": true
+  },
+  {
+   "id": "s5",
+   "week": 0,
+   "day": 3,
+   "start": 930,
+   "end": 1050,
+   "svc": "sondo",
+   "cls": null,
+   "status": "prevue",
+   "kind": "rattrapage",
+   "dueId": "d1",
+   "who": null,
+   "motif": "",
+   "noRedo": false,
+   "fixed": false,
+   "base": true
+  },
+  {
+   "id": "s6",
+   "week": 0,
+   "day": 3,
+   "start": 1060,
+   "end": 1180,
+   "svc": "adje",
+   "cls": null,
+   "status": "prevue",
+   "kind": "normal",
+   "dueId": null,
+   "who": null,
+   "motif": "",
+   "noRedo": false,
+   "fixed": false,
+   "base": true
+  },
+  {
+   "id": "s7",
+   "week": 0,
+   "day": 4,
+   "start": 1080,
+   "end": 1230,
+   "svc": "ng",
+   "cls": "c3",
+   "status": "prevue",
+   "kind": "normal",
+   "dueId": null,
+   "who": null,
+   "motif": "",
+   "noRedo": false,
+   "fixed": false,
+   "base": true
+  },
+  {
+   "id": "s8",
+   "week": 0,
+   "day": 5,
+   "start": 480,
+   "end": 720,
+   "svc": "ma",
+   "cls": "c1",
+   "status": "prevue",
+   "kind": "normal",
+   "dueId": null,
+   "who": null,
+   "motif": "",
+   "noRedo": false,
+   "fixed": true,
+   "base": true
+  },
+  {
+   "id": "s9",
+   "week": 0,
+   "day": 5,
+   "start": 870,
+   "end": 990,
+   "svc": "sondo",
+   "cls": null,
+   "status": "prevue",
+   "kind": "normal",
+   "dueId": null,
+   "who": null,
+   "motif": "",
+   "noRedo": false,
+   "fixed": false,
+   "base": true
+  },
+  {
+   "id": "s10",
+   "week": 0,
+   "day": 6,
+   "start": 540,
+   "end": 660,
+   "svc": "ange",
+   "cls": null,
+   "status": "prevue",
+   "kind": "normal",
+   "dueId": null,
+   "who": null,
+   "motif": "",
+   "noRedo": false,
+   "fixed": true,
+   "base": true
+  },
+  {
+   "id": "s11",
+   "week": 0,
+   "day": 6,
+   "start": 840,
+   "end": 1080,
+   "svc": "ng",
+   "cls": "c3",
+   "status": "prevue",
+   "kind": "normal",
+   "dueId": null,
+   "who": null,
+   "motif": "",
+   "noRedo": false,
+   "fixed": false,
+   "base": true
+  }
+ ],
+ "dues": [
+  {
+   "id": "d1",
+   "svc": "sondo",
+   "cls": null,
+   "from": "jeu. 1 oct.",
+   "who": "moi",
+   "motif": "Réunion tardive au bureau",
+   "placedSession": "s5",
+   "done": false,
+   "sourceId": null
+  },
+  {
+   "id": "d2",
+   "svc": "ange",
+   "cls": null,
+   "from": "lun. 28 sept.",
+   "who": "eleve",
+   "motif": "Malade",
+   "placedSession": null,
+   "done": false,
+   "sourceId": null
+  }
+ ],
+ "preps": {
+  "0": {
+   "off": [
+    "15:00",
+    "15:00",
+    "18:00",
+    "15:00",
+    "16:00"
+   ],
+   "counts": {
+    "c1": 2,
+    "c2": 1,
+    "c3": 2,
+    "c4": 0
+   },
+   "changes": {},
+   "include": {}
+  }
+ },
+ "generated": [
+  0
+ ],
+ "todoCount": 2,
+ "history": {
+  "adje": [
+   {
+    "date": "Ven. 2 oct.",
+    "time": "16h30–18h30",
+    "status": "faite",
+    "motif": null
+   },
+   {
+    "date": "Mar. 29 sept.",
+    "time": "15h30–17h30",
+    "status": "faite",
+    "motif": null
+   },
+   {
+    "date": "Ven. 25 sept.",
+    "time": "16h30–18h30",
+    "status": "faite",
+    "motif": null
+   }
+  ],
+  "ange": [
+   {
+    "date": "Dim. 4 oct.",
+    "time": "9h–11h",
+    "status": "faite",
+    "motif": null
+   },
+   {
+    "date": "Mer. 30 sept.",
+    "time": "18h30–20h30",
+    "status": "faite",
+    "motif": null
+   },
+   {
+    "date": "Lun. 28 sept.",
+    "time": "15h30–17h30",
+    "status": "manquee",
+    "motif": "Élève absent · malade"
+   },
+   {
+    "date": "Jeu. 24 sept.",
+    "time": "15h30–17h30",
+    "status": "faite",
+    "motif": null
+   }
+  ],
+  "sondo": [
+   {
+    "date": "Sam. 3 oct.",
+    "time": "14h30–16h30",
+    "status": "faite",
+    "motif": null
+   },
+   {
+    "date": "Jeu. 1 oct.",
+    "time": "15h30–17h30",
+    "status": "manquee",
+    "motif": "Moi absent · réunion tardive au bureau"
+   },
+   {
+    "date": "Mar. 29 sept.",
+    "time": "17h40–19h40",
+    "status": "faite",
+    "motif": null
+   },
+   {
+    "date": "Sam. 26 sept.",
+    "time": "14h30–16h30",
+    "status": "faite",
+    "motif": null
+   }
+  ]
+ },
+ "settings": {
+  "travel": false
+ }
+}
