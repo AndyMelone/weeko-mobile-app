@@ -45,5 +45,7 @@ app.*.map.json
 /android/app/release
 
 # Config API (clé)
-.env.json
-.env.prod.json
+.env
+.env*.json
+.env.*
+!.env.example*
