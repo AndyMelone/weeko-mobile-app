@@ -293,6 +293,36 @@ class _Fiche extends StatelessWidget {
         Section(
           title: 'Cette semaine',
           children: [
+            // Nombre de séances modifié (déplacement, échange, suppression…) : cette semaine et les suivantes.
+            for (final (wk, g) in [
+              for (final wk in app.generated.where((x) => x >= cw).toList()..sort())
+                for (final g in app.countGaps(wk))
+                  if (g.svc == id) (wk, g),
+            ])
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.warningBg,
+                  border: Border.all(color: AppColors.warning),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 1),
+                      child: AppIcon(AppIcons.alertTriangle, size: 16, color: AppColors.warning),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${wk == cw ? 'Cette semaine' : 'Semaine ${weekSpan(wk)}'} : '
+                        '${plural(g.have, 'séance')} au lieu de ${g.expected}.',
+                        style: AppText.body(13, color: AppColors.warning, weight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             for (final s in mine)
               Tap(
                 onTap: () => showSessionSheet(context, app, nav, s),
@@ -310,7 +340,7 @@ class _Fiche extends StatelessWidget {
                         ],
                       ),
                     ),
-                    StatusTag(tagOfSession(s)),
+                    StatusTag(app.tagOf(s)),
                   ],
                 ),
               ),

@@ -8,7 +8,6 @@ import '../../core/widgets/misc.dart';
 import '../../core/widgets/status_tag.dart';
 import '../../data/models/models.dart';
 import '../../logic/app_state.dart';
-import '../../logic/labels.dart';
 
 class SessionRow extends StatelessWidget {
   const SessionRow({super.key, required this.session, required this.app, required this.onTap});
@@ -57,7 +56,7 @@ class SessionRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          StatusTag(tagOfSession(s)),
+          StatusTag(app.tagOf(s)),
         ],
       ),
     );

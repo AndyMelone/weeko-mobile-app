@@ -5,6 +5,7 @@ import '../theme/app_text.dart';
 
 enum TagKind {
   prevue('Prévue', Colors.transparent, AppColors.neutral800, AppColors.neutral400),
+  aPointer('À pointer', AppColors.warningBg, AppColors.warning, AppColors.warning),
   rattrapage('Rattrapage', Colors.transparent, AppColors.accent800, AppColors.accent600),
   faite('Faite', AppColors.accent100, AppColors.accent800, AppColors.accent300),
   manquee('Manquée', AppColors.neutral900, Colors.white, AppColors.neutral900),
@@ -23,9 +24,12 @@ enum TagKind {
 }
 
 class StatusTag extends StatelessWidget {
-  const StatusTag(this.kind, {super.key});
+  const StatusTag(this.kind, {super.key, this.count});
 
   final TagKind kind;
+
+  /// Nombre affiché devant le libellé (ex. « 2 à pointer »).
+  final int? count;
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +40,7 @@ class StatusTag extends StatelessWidget {
         border: Border.all(color: kind.border),
       ),
       child: Text(
-        kind.label,
+        count == null ? kind.label : '$count ${kind.label.toLowerCase()}',
         style: AppText.body(11, color: kind.fg, weight: FontWeight.w500).copyWith(letterSpacing: .22),
       ),
     );

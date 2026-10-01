@@ -15,6 +15,8 @@ import '../../logic/nav_state.dart';
 import '../shared/screen_header.dart';
 import '../shared/session_row.dart';
 import '../shared/session_sheets.dart';
+import '../../core/widgets/status_tag.dart';
+import '../../data/api/api_client.dart';
 
 class _Alert {
   const _Alert(this.title, this.detail, this.action, this.onTap);
@@ -68,6 +70,12 @@ class SemaineScreen extends StatefulWidget {
 class _SemaineScreenState extends State<SemaineScreen> {
   final _scroll = ScrollController();
   final _dayKeys = <int, GlobalKey>{};
+
+  /// Glisser une séance en cours : les jours deviennent des zones de dépôt.
+  bool _dragging = false;
+
+  /// Jours passés de la semaine en cours dépliés.
+  bool _showPast = false;
 
   @override
   void dispose() {
@@ -197,6 +205,19 @@ class _SemaineScreenState extends State<SemaineScreen> {
         ),
       );
     }
+    for (final g in app.countGaps(w)) {
+      alerts.add(
+        _Alert(
+          app.gapLabel(g),
+          'Le nombre de séances de la semaine a changé (déplacement, échange, suppression…).',
+          'Voir',
+          () {
+            nav.selectStudent(g.svc);
+            nav.go(AppScreen.eleve);
+          },
+        ),
+      );
+    }
     if (w == cw) {
       for (final u in app.dues.where((u) => !u.done && u.placedSession == null)) {
         alerts.add(
@@ -216,6 +237,11 @@ class _SemaineScreenState extends State<SemaineScreen> {
     final summary =
         '${sessions.length} séances · $h h${m > 0 ? ' $m' : ''} de cours${faites > 0 ? ' · ${plural(faites, 'faite')}' : ''}';
     final todayDay = w == cw ? days.where((x) => x.day == today().day).firstOrNull : null;
+    // Semaine en cours : les jours passés sont repliés (séances non pointées : « à pointer »).
+    final past = w == cw ? days.where((x) => x.day < today().day).toList() : const <_Day>[];
+    final pastSessions = sessions.where((s) => past.any((d) => d.day == s.day)).toList();
+    final pastCount = pastSessions.length;
+    final pastToPoint = pastSessions.where((s) => s.status == SessionStatus.prevue).length;
 
     return Column(
       children: [
@@ -240,8 +266,16 @@ class _SemaineScreenState extends State<SemaineScreen> {
               if (todayDay != null)
                 _TodayBlock(note: todayDay.todayNote, child: _dayContent(app, nav, todayDay, isToday: true)),
               if (alerts.isNotEmpty) _AlertsCard(alerts: alerts),
+              if (past.isNotEmpty)
+                _PastFold(
+                  label: '${past.length == 1 ? 'Jour passé' : 'Jours passés'} · ${plural(pastCount, 'séance')}',
+                  toPoint: pastToPoint,
+                  expanded: _showPast,
+                  onToggle: () => setState(() => _showPast = !_showPast),
+                  children: [for (final d in past) _dayContent(app, nav, d, isPast: true)],
+                ),
               for (final d in days)
-                if (d != todayDay)
+                if (d != todayDay && !past.contains(d))
                   KeyedSubtree(key: _dayKeys.putIfAbsent(d.day, GlobalKey.new), child: _dayContent(app, nav, d)),
             ],
           ),
@@ -281,7 +315,78 @@ class _SemaineScreenState extends State<SemaineScreen> {
     );
   }
 
-  Widget _dayContent(AppState app, NavState nav, _Day d, {bool isToday = false}) {
+  /// Séance prévue : appui long pour la glisser sur une autre séance (échange)
+  /// ou sur un jour (déplacement, mêmes heures).
+  Widget _draggable(AppState app, NavState nav, Session s) {
+    final row = SessionRow(session: s, app: app, onTap: () => showSessionSheet(context, app, nav, s));
+    if (s.status != SessionStatus.prevue) return row;
+    return LongPressDraggable<Session>(
+      data: s,
+      hapticFeedbackOnStart: true,
+      onDragStarted: () => setState(() => _dragging = true),
+      onDragEnd: (_) {
+        if (mounted) setState(() => _dragging = false);
+      },
+      feedback: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: MediaQuery.sizeOf(context).width - 32,
+          decoration: const BoxDecoration(color: AppColors.bg, boxShadow: AppColors.shadowLg),
+          child: SessionRow(session: s, app: app, onTap: () {}),
+        ),
+      ),
+      childWhenDragging: Opacity(opacity: .35, child: row),
+      child: DragTarget<Session>(
+        onWillAcceptWithDetails: (d) => d.data.id != s.id,
+        onAcceptWithDetails: (d) => swapAndNotify(app, nav, d.data, s),
+        builder: (context, cand, _) => Container(
+          foregroundDecoration: cand.isEmpty
+              ? null
+              : BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: .12),
+                  border: Border.all(color: AppColors.accent, width: 2),
+                ),
+          child: row,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _moveToDay(AppState app, NavState nav, Session s, int w, int d) async {
+    try {
+      final msg = await app.moveSession(s.id, Slot(week: w, day: d, start: s.start, end: s.end));
+      nav.showToast(withGaps(app, msg, {s.week, w}, [s.svc]));
+    } on ApiException catch (e) {
+      nav.showToast(e.message);
+    }
+  }
+
+  Widget _dayContent(AppState app, NavState nav, _Day d, {bool isToday = false, bool isPast = false}) {
+    final w = nav.week;
+    final content = _dayColumn(app, nav, d, isToday: isToday);
+    if (isPast) return content;
+    // Jour entier = zone de dépôt (les séances, plus précises, ont la priorité : échange).
+    return DragTarget<Session>(
+      onWillAcceptWithDetails: (det) => det.data.week != w || det.data.day != d.day,
+      onAcceptWithDetails: (det) => _moveToDay(app, nav, det.data, w, d.day),
+      builder: (context, cand, _) => Container(
+        decoration: BoxDecoration(
+          color: cand.isNotEmpty ? AppColors.accent100 : Colors.transparent,
+          border: Border.all(
+            color: cand.isNotEmpty
+                ? AppColors.accent
+                : _dragging
+                ? AppColors.divider
+                : Colors.transparent,
+          ),
+        ),
+        padding: _dragging ? const EdgeInsets.all(4) : EdgeInsets.zero,
+        child: content,
+      ),
+    );
+  }
+
+  Widget _dayColumn(AppState app, NavState nav, _Day d, {bool isToday = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -317,14 +422,56 @@ class _SemaineScreenState extends State<SemaineScreen> {
         for (final r in d.rows) ...[
           const SizedBox(height: 6),
           switch (r) {
-            _SessionItem(:final session) => SessionRow(
-              session: session,
-              app: app,
-              onTap: () => showSessionSheet(context, app, nav, session),
-            ),
+            _SessionItem(:final session) => _draggable(app, nav, session),
             _GapItem(:final label, :final bad) => _TravelGap(label: label, bad: bad),
           },
         ],
+      ],
+    );
+  }
+}
+
+/// Jours passés de la semaine en cours, repliés par défaut.
+class _PastFold extends StatelessWidget {
+  const _PastFold({
+    required this.label,
+    required this.toPoint,
+    required this.expanded,
+    required this.onToggle,
+    required this.children,
+  });
+
+  final String label;
+  final int toPoint;
+  final bool expanded;
+  final VoidCallback onToggle;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Tap(
+          onTap: onToggle,
+          border: Border.all(color: AppColors.divider),
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(label, style: AppText.body(15, weight: FontWeight.w500)),
+              ),
+              if (toPoint > 0) ...[StatusTag(TagKind.aPointer, count: toPoint), const SizedBox(width: 8)],
+              Transform.rotate(
+                angle: expanded ? -1.5708 : 1.5708,
+                child: const AppIcon(AppIcons.chevronRight, size: 18, color: AppColors.neutral700),
+              ),
+            ],
+          ),
+        ),
+        if (expanded)
+          for (final c in children) ...[const SizedBox(height: 14), c],
       ],
     );
   }

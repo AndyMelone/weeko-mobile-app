@@ -336,7 +336,8 @@ class _GenerationSheetState extends State<_GenerationSheet> {
   @override
   Widget build(BuildContext context) {
     final sessions = app.sortedWeek(w, _ss);
-    final warnings = sessions.fold(0, (n, s) => n + app.issuesOf(s, _ss, w).length);
+    final gaps = app.countGaps(w, _ss);
+    final warnings = sessions.fold(0, (n, s) => n + app.issuesOf(s, _ss, w).length) + gaps.length;
 
     final body = switch (_tab) {
       _Tab.recap => [
@@ -480,7 +481,10 @@ class _GenerationSheetState extends State<_GenerationSheet> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '${plural(warnings, 'avertissement')} · vous pouvez valider quand même.',
+                              [
+                                for (final g in gaps) '${app.gapLabel(g)} cette semaine.',
+                                '${plural(warnings, 'avertissement')} · vous pouvez valider quand même.',
+                              ].join('\n'),
                               style: AppText.body(13, color: AppColors.warning),
                             ),
                           ),

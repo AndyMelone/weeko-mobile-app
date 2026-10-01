@@ -6,6 +6,8 @@ import '../../core/theme/app_text.dart';
 import '../../core/utils/formats.dart';
 import '../../core/widgets/app_icon.dart';
 import '../../core/widgets/buttons.dart';
+import '../../core/widgets/confirm_sheet.dart';
+import '../../core/widgets/misc.dart';
 import '../../core/widgets/inputs.dart';
 import '../../core/widgets/status_tag.dart';
 import '../../data/api/api_client.dart';
@@ -71,11 +73,15 @@ Future<void> showSessionSheet(BuildContext context, AppState app, NavState nav, 
         if (planned) ...[
           SecondaryButton(label: 'Changer l’heure ou le jour', onPressed: () => Navigator.pop(ctx, 'move')),
           const SizedBox(height: 8),
+          SecondaryButton(label: 'Échanger avec…', onPressed: () => Navigator.pop(ctx, 'swap')),
+          const SizedBox(height: 8),
           SecondaryButton(
             label: s.isRattrapage ? 'Annuler le rattrapage' : 'Annuler · prévenir une absence',
             icon: AppIcons.x,
             onPressed: () => Navigator.pop(ctx, 'cancel'),
           ),
+          const SizedBox(height: 8),
+          SecondaryButton(label: 'Supprimer la séance', onPressed: () => Navigator.pop(ctx, 'delete')),
           const SizedBox(height: 8),
         ],
         SecondaryButton(
@@ -107,7 +113,20 @@ Future<void> showSessionSheet(BuildContext context, AppState app, NavState nav, 
           title: 'Changer l’heure ou le jour',
           initial: Slot(week: s.week, day: s.day, start: s.start, end: s.end),
         );
-        if (to != null) nav.showToast(await app.moveSession(s.id, to));
+        if (to != null) nav.showToast(withGaps(app, await app.moveSession(s.id, to), {s.week, to.week}, [s.svc]));
+      case 'swap':
+        final other = await showSwapPicker(context, app, s);
+        if (other != null) await swapAndNotify(app, nav, s, other);
+      case 'delete':
+        final ok = await showConfirmSheet(
+          context,
+          title: 'Supprimer cette séance ?',
+          message:
+              '${app.titleOf(s)} · ${dayLong(s.week, s.day)} sort du planning, sans séance à rattraper. '
+              'Pour une absence à rattraper, utilisez « Annuler · prévenir une absence ».',
+          confirmLabel: 'Supprimer',
+        );
+        if (ok) nav.showToast(withGaps(app, await app.cancelSession(s.id, redo: false), {s.week}, [s.svc]));
       case 'cancel':
         if (s.isRattrapage) {
           nav.showToast(await app.cancelSession(s.id, redo: false));
@@ -115,7 +134,9 @@ Future<void> showSessionSheet(BuildContext context, AppState app, NavState nav, 
         }
         final d = await showCancelSheet(context, title: 'Annuler · ${app.titleOf(s)}', who: S.isEleve);
         if (d != null) {
-          nav.showToast(await app.cancelSession(s.id, redo: d.redo, who: d.who, motif: d.motif));
+          nav.showToast(
+            withGaps(app, await app.cancelSession(s.id, redo: d.redo, who: d.who, motif: d.motif), {s.week}, [s.svc]),
+          );
         }
       case 'ics':
         await shareSessionIcs(app, s);
@@ -131,6 +152,70 @@ Future<void> showSessionSheet(BuildContext context, AppState app, NavState nav, 
   } on ApiException catch (e) {
     nav.showToast(e.message);
   }
+}
+
+/// Texte du toast, complété si le nombre de séances d'un élève change
+/// dans les semaines [weeks] (ex. « Sondo : 1 séance au lieu de 2 »).
+String withGaps(AppState app, String msg, Set<int> weeks, Iterable<String> svcs) {
+  final gaps = [
+    for (final w in weeks)
+      for (final g in app.countGaps(w))
+        if (svcs.contains(g.svc)) '${app.gapLabel(g)}${weeks.length > 1 ? ' (semaine ${weekNum(w)})' : ''}',
+  ];
+  return gaps.isEmpty ? msg : '$msg · Attention : ${gaps.join(' · ')}';
+}
+
+/// Échange deux séances puis affiche le toast (ou l'erreur, ex. deux séances le même jour).
+Future<void> swapAndNotify(AppState app, NavState nav, Session a, Session b) async {
+  try {
+    final msg = await app.swapSessions(a.id, b.id);
+    nav.showToast(withGaps(app, msg, {a.week, b.week}, [a.svc, b.svc]));
+  } on ApiException catch (e) {
+    nav.showToast(e.message);
+  }
+}
+
+/// Choix de la séance avec laquelle échanger [s] (séances prévues de la même semaine).
+Future<Session?> showSwapPicker(BuildContext context, AppState app, Session s) {
+  final others = app.week(s.week).where((o) => o.id != s.id && o.status == SessionStatus.prevue).toList()
+    ..sort((a, b) => a.day != b.day ? a.day - b.day : a.start - b.start);
+  return _sheet<Session>(
+    context,
+    (ctx) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Échanger ${app.titleOf(s)} avec…', style: AppText.heading(22)),
+        const SizedBox(height: 4),
+        Text(
+          'Les deux séances échangent leur jour et leurs heures.',
+          style: AppText.body(14, color: AppColors.neutral700),
+        ),
+        const SizedBox(height: 12),
+        for (final o in others)
+          Tap(
+            onTap: () => Navigator.pop(ctx, o),
+            border: const Border(bottom: BorderSide(color: AppColors.divider)),
+            constraints: const BoxConstraints(minHeight: 52),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 120,
+                  child: Text('${dayNamesShort[o.day]} ${range(o.start, o.end)}', style: AppText.heading(15)),
+                ),
+                CodeBadge(code: app.svc(o.svc).code, color: app.svc(o.svc).color, size: 22, fontSize: 10),
+                const SizedBox(width: 8),
+                Expanded(child: Text(app.titleOf(o), style: AppText.body(15))),
+              ],
+            ),
+          ),
+        if (others.isEmpty) Text('Aucune autre séance prévue cette semaine.', style: AppText.body(15)),
+        const SizedBox(height: 12),
+        GhostButton(label: 'Fermer', onPressed: () => Navigator.pop(ctx)),
+      ],
+    ),
+  );
 }
 
 // ─── Choix d'un créneau (semaine, jour, heures) ───────────────

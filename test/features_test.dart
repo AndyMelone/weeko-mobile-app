@@ -68,6 +68,27 @@ void main() {
     });
   });
 
+  testWidgets('Préparer : fixer jour et heure d’un élève (facultatif) → envoyé dans la préparation', (tester) async {
+    final api = FakeApi();
+    await openApp(tester, api);
+    await tester.tap(find.text('Préparer').last);
+    await tester.pump();
+    final fix = find.text('Fixer').first; // premier élève : Ange
+    await tester.scrollUntilVisible(
+      fix,
+      200,
+      scrollable: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first,
+    );
+    await tester.tap(fix);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    expect(api.writes, contains('PATCH /api/weeks/1/prep'));
+    expect(bodyOf(api, '/api/weeks/1/prep')['times']['ange'], [
+      {'day': 0, 'start': 930, 'end': 1050},
+    ]);
+    expect(find.text('Jour et heure fixés cette semaine'), findsOneWidget);
+  });
+
   group('AppState', () {
     test('séance commencée ou non', () async {
       final app = await loaded(FakeApi());

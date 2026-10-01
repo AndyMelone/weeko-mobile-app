@@ -7,9 +7,11 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/utils/formats.dart';
+import '../core/widgets/status_tag.dart';
 import '../data/api/api_client.dart';
 import '../data/api/json.dart';
 import '../data/models/models.dart';
+import 'labels.dart';
 
 const _dayEnd = 1290;
 
@@ -626,6 +628,12 @@ class AppState extends ChangeNotifier {
     return res['message'] as String;
   }
 
+  /// Échange jour et heures de deux séances prévues.
+  Future<String> swapSessions(String a, String b) async {
+    final res = await _mutate(() => api.post('/sessions/${Uri.encodeComponent(a)}/swap', {'with': b}));
+    return res['message'] as String;
+  }
+
   /// Annule une séance prévue (absence prévenue), avec ou sans rattrapage.
   Future<String> cancelSession(String id, {required bool redo, Who? who, String motif = ''}) async {
     final res = await _mutate(
@@ -639,6 +647,40 @@ class AppState extends ChangeNotifier {
   }
 
   /// La séance a-t-elle commencé ? (« Faite » n'est possible qu'à partir du début.)
+  /// La séance est-elle terminée ?
+  bool isOver(Session s) {
+    final t = today();
+    final now = clock();
+    final nowMin = now.hour * 60 + now.minute;
+    return s.week < t.week || (s.week == t.week && (s.day < t.day || (s.day == t.day && s.end <= nowMin)));
+  }
+
+  /// Tag affiché : une séance terminée encore « prévue » est « à pointer ».
+  TagKind tagOf(Session s) => s.status == SessionStatus.prevue && isOver(s) ? TagKind.aPointer : tagOfSession(s);
+
+  /// Élèves dont le nombre de séances de la semaine [w] (ou de l'aperçu [ss])
+  /// diffère du prévu : règle de l'élève, ou « 1 séance » / « absent » dans Préparer.
+  List<({String svc, int have, int expected})> countGaps(int w, [List<Session>? ss]) {
+    if (ss == null && !generated.contains(w)) return const [];
+    final list = week(w, ss);
+    final prep = prepOf(w);
+    return [for (final k in students) ?_countGap(k, list, prep)];
+  }
+
+  ({String svc, int have, int expected})? _countGap(String k, List<Session> list, WeekPrep prep) {
+    final expected = switch (prep.changes[k] ?? WeekChange.normal) {
+      WeekChange.absent => 0,
+      WeekChange.une => 1,
+      WeekChange.normal => svc(k).perWeek,
+    };
+    final have = list.where((s) => s.svc == k && !s.isRattrapage).length;
+    return have == expected ? null : (svc: k, have: have, expected: expected);
+  }
+
+  /// « Sondo : 1 séance au lieu de 2 ».
+  String gapLabel(({String svc, int have, int expected}) g) =>
+      '${svc(g.svc).first} : ${plural(g.have, 'séance')} au lieu de ${g.expected}';
+
   bool hasStarted(Session s) {
     final t = today();
     final now = clock();

@@ -202,6 +202,14 @@ class PreparerScreen extends StatelessWidget {
                                 ),
                             ],
                           ),
+                          if ((prep.changes[k] ?? WeekChange.normal) != WeekChange.absent)
+                            _ClassTimes(
+                              student: true,
+                              site: app.svc(k),
+                              name: app.svc(k).name,
+                              times: prep.times[k],
+                              onChanged: (ts) => edit((p) => p.times[k] = ts),
+                            ),
                         ],
                       ),
                     ),
@@ -306,10 +314,19 @@ class _OffRow extends StatelessWidget {
 }
 
 class _ClassTimes extends StatelessWidget {
-  const _ClassTimes({required this.site, required this.name, required this.times, required this.onChanged});
+  const _ClassTimes({
+    required this.site,
+    required this.name,
+    required this.times,
+    required this.onChanged,
+    this.student = false,
+  });
 
   final Service site;
   final String name;
+
+  /// Élève : pas d'en-tête, créneaux facultatifs de 2 h.
+  final bool student;
 
   final List<ClassTime>? times;
   final ValueChanged<List<ClassTime>> onChanged;
@@ -317,7 +334,8 @@ class _ClassTimes extends StatelessWidget {
   static const _maxPerWeek = 7;
 
   ClassTime _next(List<ClassTime> ts) {
-    final d = ts.isEmpty ? 0 : (ts.last.day + 1) % 7;
+    final d = ts.isEmpty ? 0 : (ts.last.day + 2) % 7;
+    if (student) return d < 5 ? (day: d, start: 930, end: 1050) : (day: d, start: 540, end: 660);
     return d < 5 ? (day: d, start: 1080, end: 1230) : (day: d, start: 480, end: 720);
   }
 
@@ -358,32 +376,46 @@ class _ClassTimes extends StatelessWidget {
   Widget build(BuildContext context) {
     final ts = times ?? const <ClassTime>[];
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 8, 8),
+      padding: student ? const EdgeInsets.only(top: 6) : const EdgeInsets.fromLTRB(12, 6, 8, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              CodeBadge(code: site.code, color: site.color, size: 32, fontSize: 13),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(name, style: AppText.body(15, weight: FontWeight.w500)),
-                    Text(site.name, style: AppText.body(13, color: AppColors.neutral700)),
-                  ],
+          if (student)
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    ts.isEmpty ? 'Jour et heure : placés par le planning' : 'Jour et heure fixés cette semaine',
+                    style: AppText.body(13, color: AppColors.neutral700),
+                  ),
                 ),
-              ),
-              if (ts.length < _maxPerWeek)
-                SquareIconButton(
-                  icon: AppIcons.plus,
-                  onPressed: () => onChanged([...ts, _next(ts)]),
-                  tooltip: 'Ajouter une séance',
-                  iconSize: 18,
+                if (ts.length < _maxPerWeek)
+                  GhostButton(label: ts.isEmpty ? 'Fixer' : 'Ajouter', onPressed: () => onChanged([...ts, _next(ts)])),
+              ],
+            )
+          else
+            Row(
+              children: [
+                CodeBadge(code: site.code, color: site.color, size: 32, fontSize: 13),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name, style: AppText.body(15, weight: FontWeight.w500)),
+                      Text(site.name, style: AppText.body(13, color: AppColors.neutral700)),
+                    ],
+                  ),
                 ),
-            ],
-          ),
+                if (ts.length < _maxPerWeek)
+                  SquareIconButton(
+                    icon: AppIcons.plus,
+                    onPressed: () => onChanged([...ts, _next(ts)]),
+                    tooltip: 'Ajouter une séance',
+                    iconSize: 18,
+                  ),
+              ],
+            ),
           for (var i = 0; i < ts.length; i++)
             Padding(
               padding: const EdgeInsets.only(top: 6),

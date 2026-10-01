@@ -96,6 +96,16 @@ void main() {
       expect(app.sameDayConflict(moved), contains('deux séances le'));
     });
 
+    test('nombre de séances : écart signalé quand une séance d’élève est retirée', () async {
+      final app = await loaded(FakeApi());
+      final ss = app.week(0);
+      expect(app.countGaps(0, ss).where((g) => g.svc == 'adje'), isEmpty);
+      final one = ss.firstWhere((s) => s.svc == 'adje' && !s.isRattrapage);
+      final gaps = app.countGaps(0, [...ss.where((s) => s.id != one.id)]);
+      final g = gaps.singleWhere((g) => g.svc == 'adje');
+      expect(app.gapLabel(g), 'Adjé : 1 séance au lieu de 2');
+    });
+
     test('trajets : désactivés par défaut, séances bout à bout', () async {
       final app = await loaded(FakeApi());
       expect(app.travelEnabled, isFalse);

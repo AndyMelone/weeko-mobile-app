@@ -17,6 +17,10 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.text("AUJOURD'HUI"), findsOneWidget);
+    // Jours passés repliés, avec les séances non pointées « à pointer ».
+    expect(find.textContaining('à pointer'), findsWidgets);
+    await tester.tap(find.textContaining('Jour passé'));
+    await tester.pump();
     await tester.tap(find.text('Adjé').first);
     await tester.pumpAndSettle();
     // Feuille de séance (lundi, déjà passée) → Pointer.
