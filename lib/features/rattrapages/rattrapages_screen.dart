@@ -41,7 +41,7 @@ class _RattrapagesScreenState extends State<RattrapagesScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text((todo > 0 ? '$todo à caser' : 'Tout est casé').toUpperCase(), style: AppText.kicker),
+              Text((todo > 0 ? '$todo à placer' : 'Tout est placé').toUpperCase(), style: AppText.kicker),
               Text('Rattrapages', style: AppText.heading(26, height: 1.1)),
             ],
           ),
@@ -149,7 +149,7 @@ class _ItemCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Casée : ${it.placed}',
+                    'Placée : ${it.placed}',
                     style: AppText.body(15, weight: FontWeight.w500, color: AppColors.accent800),
                   ),
                 ),
@@ -196,7 +196,7 @@ class _ItemCard extends StatelessWidget {
               const SizedBox(height: 6),
               _ProposalTile(
                 label: '${dayShort(props[i].week, props[i].day)} · ${range(props[i].start, props[i].end)}',
-                sub: props[i].week == 0 ? 'Cette semaine' : 'Semaine du ${weekRange(props[i].week)}',
+                sub: props[i].week == currentWeek ? 'Cette semaine' : 'Semaine du ${weekRange(props[i].week)}',
                 selected: switch (choice) {
                   ProposalChoice(:final index) => index == i,
                   _ => false,
@@ -228,7 +228,7 @@ class _ItemCard extends StatelessWidget {
               Text(manual, style: AppText.body(14, color: manualOk ? AppColors.accent800 : AppColors.neutral800)),
             ],
             const SizedBox(height: 12),
-            PrimaryButton(label: 'Caser ce créneau', height: 48, fontSize: 17, onPressed: canPlace ? onPlace : null),
+            PrimaryButton(label: 'Ajouter au planning', height: 48, fontSize: 17, onPressed: canPlace ? onPlace : null),
           ],
         ],
       ),

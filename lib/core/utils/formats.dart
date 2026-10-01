@@ -17,6 +17,22 @@ const monthNames = [
 ];
 const monthShort = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
+/// Horloge de l'app. `TODAY` (« 2026-10-06 ») dans `.env.json` fixe la date ; les tests la remplacent.
+DateTime Function() clock = () {
+  const forced = String.fromEnvironment('TODAY');
+  return forced.isEmpty ? DateTime.now() : DateTime.parse(forced);
+};
+
+/// Semaine (décalage depuis la semaine 0) et jour (0 = lundi) d'aujourd'hui.
+({int week, int day}) today() {
+  final n = clock();
+  final days = DateTime.utc(n.year, n.month, n.day).difference(DateTime.utc(2026, 10, 5)).inDays;
+  final week = (days / 7).floor();
+  return (week: week, day: days - week * 7);
+}
+
+int get currentWeek => today().week;
+
 DateTime dateOf(int week, int day) => DateTime(2026, 10, 5 + week * 7 + day);
 
 String fmt(int minutes) {
@@ -67,3 +83,5 @@ String toHhMm(int minutes) =>
     '${(minutes ~/ 60).toString().padLeft(2, '0')}:${(minutes % 60).toString().padLeft(2, '0')}';
 
 String plural(int n, String word) => '$n $word${n > 1 ? 's' : ''}';
+
+String capitalized(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);

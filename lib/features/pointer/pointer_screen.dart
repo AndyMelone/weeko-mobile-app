@@ -63,8 +63,8 @@ class _PointerScreenState extends State<PointerScreen> {
     final dueNote = !d.redo
         ? 'Aucune séance à rattraper ne sera créée. La séance reste dans l’historique comme manquée, sans rattrapage.'
         : s.isRattrapage
-        ? 'Le rattrapage sera à recaser dans Rattrapages.'
-        : 'Une séance à rattraper sera créée pour ${app.titleOf(s)}, à caser dans Rattrapages (cette semaine ou plus tard).';
+        ? 'Le rattrapage sera à replacer dans Rattrapages.'
+        : 'Une séance à rattraper sera créée pour ${app.titleOf(s)}, à placer dans Rattrapages (cette semaine ou plus tard).';
     final canSave = _chosen && (!d.missed || d.who != null);
 
     return Column(

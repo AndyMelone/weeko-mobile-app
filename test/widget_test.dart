@@ -23,6 +23,16 @@ void main() {
       expect(fmt(900), '15h');
       expect(dayShort(0, 3), 'jeu. 8 oct.');
     });
+
+    test('aujourd’hui suit la vraie date', () {
+      final saved = clock;
+      addTearDown(() => clock = saved);
+      clock = () => DateTime(2026, 9, 30, 21, 45); // mercredi
+      expect(today(), (week: -1, day: 2));
+      expect(weekRange(currentWeek), '28 sept. – 4 oct.');
+      clock = () => DateTime(2026, 10, 5);
+      expect(today(), (week: 0, day: 0));
+    });
   });
 
   group('AppState', () {
@@ -102,11 +112,11 @@ void main() {
 
     test('annuler un rattrapage casé envoie cancel', () async {
       final api = FakeApi(
-        respond: (r) => r.url.path.endsWith('/cancel') ? {'message': 'Rattrapage annulé · séance à recaser'} : null,
+        respond: (r) => r.url.path.endsWith('/cancel') ? {'message': 'Rattrapage annulé · séance à replacer'} : null,
       );
       final app = await loaded(api);
       final it = app.items().firstWhere((i) => i.key == 'd1');
-      expect(await app.cancelRattrapage(it), 'Rattrapage annulé · séance à recaser');
+      expect(await app.cancelRattrapage(it), 'Rattrapage annulé · séance à replacer');
       expect(api.writes, ['POST /api/rattrapages/d1/cancel']);
     });
 

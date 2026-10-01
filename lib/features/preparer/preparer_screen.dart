@@ -26,10 +26,10 @@ class PreparerScreen extends StatelessWidget {
     final nav = context.watch<NavState>();
     final w = nav.prepWeek;
     final prep = app.prepOf(w);
-    final kicker = switch (w) {
+    final kicker = switch (w - currentWeek) {
       0 => 'En cours',
       1 => 'La semaine prochaine',
-      _ when w > 1 => 'Dans $w semaines',
+      final n when n > 1 => 'Dans $n semaines',
       _ => 'Passée',
     };
     void edit(void Function(WeekPrep p) fn) => app.updatePrep(w, fn);
@@ -107,6 +107,10 @@ class PreparerScreen extends StatelessWidget {
                           onChanged: (ts) => edit((p) => p.times[c.id] = ts),
                         ),
                     ],
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: GhostButton(label: 'Gérer les sites et classes', onPressed: nav.openSites),
                   ),
                 ],
               ),
@@ -454,7 +458,7 @@ class _CatchupRow extends StatelessWidget {
                   style: AppText.body(15, weight: FontWeight.w500),
                 ),
                 Text(
-                  '${app.whoLabel(u)}${u.motif.isNotEmpty ? ' · ${u.motif}' : ''}${ps != null ? ' · casée ${dayShort(ps.week, ps.day)}' : ''}',
+                  '${app.whoLabel(u)}${u.motif.isNotEmpty ? ' · ${u.motif}' : ''}${ps != null ? ' · placée ${dayShort(ps.week, ps.day)}' : ''}',
                   style: AppText.body(13, color: AppColors.neutral700),
                 ),
               ],

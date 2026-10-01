@@ -8,20 +8,23 @@ import '../../core/widgets/inputs.dart';
 import '../shared/screen_header.dart';
 import '../../logic/app_state.dart';
 
+/// Formulaire élève : ajout, ou modification si [initial] est fourni.
 class AddStudentForm extends StatefulWidget {
-  const AddStudentForm({super.key, required this.onCancel, required this.onSave});
+  const AddStudentForm({super.key, required this.onCancel, required this.onSave, this.initial});
 
   final VoidCallback onCancel;
   final ValueChanged<StudentForm> onSave;
+  final StudentForm? initial;
 
   @override
   State<AddStudentForm> createState() => _AddStudentFormState();
 }
 
 class _AddStudentFormState extends State<AddStudentForm> {
-  final _f = StudentForm();
-  final _name = TextEditingController();
-  final _phone = TextEditingController();
+  late final _f = widget.initial ?? StudentForm();
+  late final _name = TextEditingController(text: _f.name);
+  late final _phone = TextEditingController(text: _f.phone);
+  bool get _editing => widget.initial != null;
 
   @override
   void dispose() {
@@ -53,7 +56,7 @@ class _AddStudentFormState extends State<AddStudentForm> {
     return ScreenBody(
       gap: 20,
       children: [
-        Text('Nouvel élève à domicile', style: AppText.heading(26, height: 1.1)),
+        Text(_editing ? 'Modifier ${_f.name}' : 'Nouvel élève à domicile', style: AppText.heading(26, height: 1.1)),
         FieldLabel(
           label: "Nom de l'élève",
           child: AppTextField(controller: _name, hint: 'Ex. Koffi Yao', onChanged: (v) => setState(() => _f.name = v)),
@@ -186,7 +189,9 @@ class _AddStudentFormState extends State<AddStudentForm> {
           ),
         ),
         Text(
-          "L'élève reçoit une couleur et sera placé à la prochaine génération du planning.",
+          _editing
+              ? 'Les changements s’appliquent à la prochaine génération du planning.'
+              : "L'élève reçoit une couleur et sera placé à la prochaine génération du planning.",
           style: AppText.body(13, color: AppColors.neutral700),
         ),
         Row(
@@ -198,7 +203,7 @@ class _AddStudentFormState extends State<AddStudentForm> {
             Expanded(
               flex: 2,
               child: PrimaryButton(
-                label: "Ajouter l'élève",
+                label: _editing ? 'Enregistrer' : "Ajouter l'élève",
                 fontSize: 17,
                 onPressed: _f.name.trim().isEmpty ? null : () => widget.onSave(_f),
               ),

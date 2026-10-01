@@ -12,6 +12,7 @@ import '../pointer/pointer_screen.dart';
 import '../preparer/preparer_screen.dart';
 import '../rattrapages/rattrapages_screen.dart';
 import '../semaine/semaine_screen.dart';
+import '../sites/sites_screen.dart';
 
 class HomeShell extends StatelessWidget {
   const HomeShell({super.key});
@@ -28,13 +29,16 @@ class HomeShell extends StatelessWidget {
       AppScreen.pointer => PointerScreen(key: ValueKey(nav.sessionId), sessionId: nav.sessionId!),
       AppScreen.rattrapages => const RattrapagesScreen(),
       AppScreen.eleve => const EleveScreen(),
+      AppScreen.sites => const SitesScreen(),
     };
 
     return PopScope(
       canPop: nav.screen == AppScreen.semaine,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        nav.screen == AppScreen.pointer ? nav.closePointer() : nav.go(AppScreen.semaine);
+        nav.screen == AppScreen.pointer || nav.screen == AppScreen.sites
+            ? nav.closePointer()
+            : nav.go(AppScreen.semaine);
       },
       child: Scaffold(
         backgroundColor: AppColors.bg,
@@ -76,7 +80,11 @@ class _TabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final nav = context.watch<NavState>();
     final todo = context.select<AppState, int>((a) => a.todoCount);
-    final active = nav.screen == AppScreen.pointer ? AppScreen.semaine : nav.screen;
+    final active = switch (nav.screen) {
+      AppScreen.pointer => AppScreen.semaine,
+      AppScreen.sites => AppScreen.preparer,
+      final s => s,
+    };
 
     Widget tab(AppScreen s, AppIcons icon, String label, {int badge = 0}) {
       final on = active == s;

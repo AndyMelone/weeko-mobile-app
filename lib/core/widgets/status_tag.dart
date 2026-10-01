@@ -12,7 +12,7 @@ enum TagKind {
   rattrapee('Rattrapée', AppColors.accent700, Colors.white, AppColors.accent700),
   due('À rattraper', AppColors.neutral900, Colors.white, AppColors.neutral900),
   nonPlacee('Non placée', AppColors.neutral900, Colors.white, AppColors.neutral900),
-  casee('Casée', AppColors.accent100, AppColors.accent800, AppColors.accent300);
+  casee('Placée', AppColors.accent100, AppColors.accent800, AppColors.accent300);
 
   const TagKind(this.label, this.bg, this.fg, this.border);
 

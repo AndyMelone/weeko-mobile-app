@@ -80,7 +80,7 @@ class _SemaineScreenState extends State<SemaineScreen> {
     nav.scrollTarget = null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scroll.hasClients) return;
-      if (t.week == 0 && t.day == demoToday) {
+      if (t.week == today().week && t.day == today().day) {
         _scroll.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
         return;
       }
@@ -99,9 +99,10 @@ class _SemaineScreenState extends State<SemaineScreen> {
     _consumeScrollTarget(nav);
 
     final sessions = app.week(w);
-    final kicker = w == 0
+    final cw = currentWeek;
+    final kicker = w == cw
         ? 'Cette semaine'
-        : w > 0
+        : w > cw
         ? 'À venir'
         : 'Passée';
     final header = WeekHeader(
@@ -189,7 +190,7 @@ class _SemaineScreenState extends State<SemaineScreen> {
       alerts.add(
         _Alert(
           'Semaine pas encore générée',
-          'Seules les séances déjà casées apparaissent.',
+          'Seules les séances déjà placées apparaissent.',
           'Préparer',
           () => nav.openPreparer(w),
         ),
@@ -202,19 +203,19 @@ class _SemaineScreenState extends State<SemaineScreen> {
           _Alert(
             '${c.name} · ${app.svc(c.siteId).name}',
             '${plural(n, 'séance')} non placée${n > 1 ? 's' : ''} cette semaine.',
-            'Caser',
+            'Placer',
             () => nav.go(AppScreen.rattrapages),
           ),
         );
       }
     }
-    if (w == 0) {
+    if (w == cw) {
       for (final u in app.dues.where((u) => !u.done && u.placedSession == null)) {
         alerts.add(
           _Alert(
             '${u.cls != null ? app.classes[u.cls]!.name : app.svc(u.svc).name} · séance à rattraper',
-            'Manquée ${u.from}, pas encore casée.',
-            'Caser',
+            'Manquée ${u.from}, pas encore placée.',
+            'Placer',
             () => nav.go(AppScreen.rattrapages),
           ),
         );
@@ -226,7 +227,7 @@ class _SemaineScreenState extends State<SemaineScreen> {
     final h = mins ~/ 60, m = mins % 60;
     final summary =
         '${sessions.length} séances · $h h${m > 0 ? ' $m' : ''} de cours${faites > 0 ? ' · ${plural(faites, 'faite')}' : ''}';
-    final today = w == 0 ? days.where((x) => x.day == demoToday).firstOrNull : null;
+    final todayDay = w == cw ? days.where((x) => x.day == today().day).firstOrNull : null;
 
     return Column(
       children: [
@@ -248,10 +249,11 @@ class _SemaineScreenState extends State<SemaineScreen> {
                   ],
                 ),
               ),
-              if (today != null) _TodayBlock(note: today.todayNote, child: _dayContent(app, nav, today, isToday: true)),
+              if (todayDay != null)
+                _TodayBlock(note: todayDay.todayNote, child: _dayContent(app, nav, todayDay, isToday: true)),
               if (alerts.isNotEmpty) _AlertsCard(alerts: alerts),
               for (final d in days)
-                if (d != today)
+                if (d != todayDay)
                   KeyedSubtree(key: _dayKeys.putIfAbsent(d.day, GlobalKey.new), child: _dayContent(app, nav, d)),
             ],
           ),

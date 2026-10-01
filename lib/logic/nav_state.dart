@@ -2,21 +2,25 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../data/demo_data.dart';
+import '../core/utils/formats.dart';
 
-enum AppScreen { semaine, preparer, pointer, rattrapages, eleve }
+/// [pointer] et [sites] : écrans sans onglet, avec retour vers [NavState.back].
+enum AppScreen { semaine, preparer, pointer, rattrapages, eleve, sites }
 
 class NavState extends ChangeNotifier {
   AppScreen screen = AppScreen.semaine;
 
   AppScreen back = AppScreen.semaine;
 
-  int week = 0;
+  int week = currentWeek;
 
-  int prepWeek = 1;
+  int prepWeek = currentWeek + 1;
   String? sessionId;
   String studentId = 'ange';
   bool addingStudent = false;
+
+  /// Élève en cours de modification (formulaire ouvert), sinon null.
+  String? editingStudent;
 
   ({int week, int day})? scrollTarget;
 
@@ -34,12 +38,12 @@ class NavState extends ChangeNotifier {
   }
 
   void setPrepWeek(int w) {
-    prepWeek = w < 0 ? 0 : w;
+    prepWeek = w < currentWeek ? currentWeek : w;
     notifyListeners();
   }
 
   void openPreparer(int w) {
-    prepWeek = w < 0 ? 0 : w;
+    prepWeek = w < currentWeek ? currentWeek : w;
     screen = AppScreen.preparer;
     notifyListeners();
   }
@@ -56,6 +60,13 @@ class NavState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Réglages Succès Group (sites et classes), ouverts depuis Préparer.
+  void openSites() {
+    back = screen;
+    screen = AppScreen.sites;
+    notifyListeners();
+  }
+
   void goDay(int w, int d) {
     week = w;
     screen = AppScreen.semaine;
@@ -63,16 +74,28 @@ class NavState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void goToday() => goDay(0, demoToday);
+  void goToday() {
+    final t = today();
+    goDay(t.week, t.day);
+  }
 
   void selectStudent(String id) {
     studentId = id;
     addingStudent = false;
+    editingStudent = null;
     notifyListeners();
   }
 
   void setAdding(bool v) {
     addingStudent = v;
+    editingStudent = null;
+    notifyListeners();
+  }
+
+  void editStudent(String? id) {
+    if (id != null) studentId = id;
+    editingStudent = id;
+    addingStudent = false;
     notifyListeners();
   }
 

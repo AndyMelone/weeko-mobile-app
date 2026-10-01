@@ -68,6 +68,21 @@ class PointerDraft {
 }
 
 class StudentForm {
+  StudentForm();
+
+  /// Formulaire prérempli avec la fiche d'un élève (modification).
+  StudentForm.of(Service s)
+    : name = s.name,
+      phone = s.phoneLabel == 'numéro à compléter' ? '' : s.phoneLabel,
+      count = s.perWeek,
+      exDays = {
+        ...s.exDays,
+        if (s.noWeekend) ...[5, 6],
+      }.toList()..sort(),
+      notBefore = s.notBefore == null ? '' : toHhMm(s.notBefore!),
+      notAfter = s.notAfter == null ? '' : toHhMm(s.notAfter!),
+      fixed = [for (final f in s.fixed) (day: f.day, time: toHhMm(f.start))];
+
   String name = '';
   String phone = '';
   int count = 2;
@@ -76,6 +91,18 @@ class StudentForm {
   String notAfter = '';
 
   List<({int day, String time})> fixed = [];
+
+  Json toJson() => {
+    'name': name.trim(),
+    'phone': phone,
+    'count': count,
+    'exDays': exDays,
+    'notBefore': notBefore,
+    'notAfter': notAfter,
+    'fixed': [
+      for (final x in fixed) {'day': x.day, 'time': x.time},
+    ],
+  };
 }
 
 enum LoadStatus { loading, ready, error }
@@ -182,7 +209,7 @@ class AppState extends ChangeNotifier {
 
   int? off(int day, int w) => day < 5 ? parseTime(prepOf(w).off[day]) : null;
 
-  List<Session> get decided => week(0).where((s) => s.base && s.fixed).toList();
+  List<Session> get decided => week(currentWeek).where((s) => s.base && s.fixed).toList();
 
   Session? sessionById(String? id) => id == null ? null : sessions.where((s) => s.id == id).firstOrNull;
 
@@ -317,7 +344,7 @@ class AppState extends ChangeNotifier {
           svc: u.svc,
           cls: u.cls,
           due: u,
-          week: 0,
+          week: currentWeek,
           placedSession: ps,
           title: u.cls != null ? '${classes[u.cls]!.name} · ${svc(u.svc).name}' : svc(u.svc).name,
           detail: 'Manquée ${u.from} · ${whoLabel(u)}${u.motif.isNotEmpty ? ' · ${u.motif}' : ''}',
@@ -412,21 +439,13 @@ class AppState extends ChangeNotifier {
   }
 
   Future<String> addStudent(StudentForm f) async {
-    final res = await _mutate(
-      () => api.post('/students', {
-        'name': f.name.trim(),
-        'phone': f.phone,
-        'count': f.count,
-        'exDays': f.exDays,
-        'notBefore': f.notBefore,
-        'notAfter': f.notAfter,
-        'fixed': [
-          for (final x in f.fixed) {'day': x.day, 'time': x.time},
-        ],
-      }),
-    );
+    final res = await _mutate(() => api.post('/students', f.toJson()));
     return res['id'] as String;
   }
+
+  /// Modifie la fiche de l'élève [id] (pris en compte aux prochaines générations).
+  Future<void> updateStudent(String id, StudentForm f) =>
+      _mutate(() => api.patch('/students/${Uri.encodeComponent(id)}', f.toJson()));
 
   Future<String> cancelRattrapage(RattItem it) async {
     final res = await _mutate(() => api.post('/rattrapages/${Uri.encodeComponent(it.key)}/cancel'));
@@ -434,6 +453,30 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteStudent(String id) => _mutate(() => api.delete('/students/${Uri.encodeComponent(id)}'));
+
+  // ─── Succès Group : sites et classes ──────────────────────────
+
+  /// Sites Succès Group, dans l'ordre d'affichage.
+  List<Service> get sites => services.values.where((s) => !s.isEleve).toList();
+
+  List<SchoolClass> classesOf(String siteId) => classes.values.where((c) => c.siteId == siteId).toList();
+
+  Future<void> addSite(String name) => _mutate(() => api.post('/sites', {'name': name}));
+
+  Future<void> renameSite(String id, String name) =>
+      _mutate(() => api.patch('/sites/${Uri.encodeComponent(id)}', {'name': name}));
+
+  /// Supprime (archive) un site et ses classes : l'historique est conservé côté serveur.
+  Future<void> deleteSite(String id) => _mutate(() => api.delete('/sites/${Uri.encodeComponent(id)}'));
+
+  Future<void> addClass(String siteId, String name) =>
+      _mutate(() => api.post('/classes', {'name': name, 'siteId': siteId}));
+
+  Future<void> renameClass(String id, String name) =>
+      _mutate(() => api.patch('/classes/${Uri.encodeComponent(id)}', {'name': name}));
+
+  /// Supprime (archive) une classe : l'historique est conservé côté serveur.
+  Future<void> deleteClass(String id) => _mutate(() => api.delete('/classes/${Uri.encodeComponent(id)}'));
 
   @override
   void dispose() {

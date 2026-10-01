@@ -131,12 +131,20 @@ class TimeField extends StatelessWidget {
 }
 
 class AppTextField extends StatelessWidget {
-  const AppTextField({super.key, required this.controller, this.hint, this.keyboardType, this.onChanged});
+  const AppTextField({
+    super.key,
+    required this.controller,
+    this.hint,
+    this.keyboardType,
+    this.onChanged,
+    this.autofocus = false,
+  });
 
   final TextEditingController controller;
   final String? hint;
   final TextInputType? keyboardType;
   final ValueChanged<String>? onChanged;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
@@ -146,6 +154,7 @@ class AppTextField extends StatelessWidget {
     );
     return TextField(
       controller: controller,
+      autofocus: autofocus,
       keyboardType: keyboardType,
       onChanged: onChanged,
       style: AppText.body(16),

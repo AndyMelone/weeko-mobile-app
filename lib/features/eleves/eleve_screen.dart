@@ -45,7 +45,7 @@ class EleveScreen extends StatelessWidget {
                           onTap: () => nav.selectStudent(id),
                           onLongPress: () {
                             HapticFeedback.mediumImpact();
-                            _confirmDelete(context, app, nav, app.svc(id));
+                            _studentActions(context, app, nav, app.svc(id));
                           },
                         ),
                         const SizedBox(width: 6),
@@ -75,7 +75,23 @@ class EleveScreen extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: nav.addingStudent
+          child: nav.editingStudent != null && app.students.contains(nav.editingStudent)
+              ? AddStudentForm(
+                  key: ValueKey('edit-${nav.editingStudent}'),
+                  initial: StudentForm.of(app.svc(nav.editingStudent!)),
+                  onCancel: () => nav.editStudent(null),
+                  onSave: (form) async {
+                    final id = nav.editingStudent!;
+                    try {
+                      await app.updateStudent(id, form);
+                      nav.selectStudent(id);
+                      nav.showToast('${form.name.trim()} modifié');
+                    } on ApiException catch (e) {
+                      nav.showToast(e.message);
+                    }
+                  },
+                )
+              : nav.addingStudent
               ? AddStudentForm(
                   onCancel: () => nav.setAdding(false),
                   onSave: (form) async {
@@ -104,6 +120,37 @@ class EleveScreen extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Appui long sur le nom d'un élève : Modifier ou Supprimer.
+Future<void> _studentActions(BuildContext context, AppState app, NavState nav, Service S) async {
+  final action = await showModalBottomSheet<String>(
+    context: context,
+    backgroundColor: AppColors.bg,
+    shape: const RoundedRectangleBorder(),
+    builder: (ctx) => SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(S.name, style: AppText.heading(22)),
+            const SizedBox(height: 16),
+            PrimaryButton(label: 'Modifier', onPressed: () => Navigator.pop(ctx, 'edit')),
+            const SizedBox(height: 8),
+            SecondaryButton(label: 'Supprimer', icon: AppIcons.x, onPressed: () => Navigator.pop(ctx, 'delete')),
+            const SizedBox(height: 8),
+            GhostButton(label: 'Annuler', onPressed: () => Navigator.pop(ctx)),
+          ],
+        ),
+      ),
+    ),
+  );
+  if (!context.mounted) return;
+  if (action == 'edit') nav.editStudent(S.id);
+  if (action == 'delete') await _confirmDelete(context, app, nav, S);
 }
 
 Future<void> _confirmDelete(BuildContext context, AppState app, NavState nav, Service S) async {
@@ -162,14 +209,24 @@ class _Fiche extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final S = app.svc(id);
-    final mine = app.week(0).where((s) => s.svc == id).toList()
+    final cw = currentWeek;
+    final mine = app.week(cw).where((s) => s.svc == id).toList()
       ..sort((a, b) => a.day != b.day ? a.day - b.day : a.start - b.start);
+    // Séances pointées de toutes les semaines, plus récentes d'abord.
+    final pointed = app.sessions.where((s) => s.svc == id && s.status != SessionStatus.prevue).toList()
+      ..sort(
+        (a, b) => a.week != b.week
+            ? b.week - a.week
+            : a.day != b.day
+            ? b.day - a.day
+            : b.start - a.start,
+      );
     final myDues = app.dues.where((u) => u.svc == id && !u.done).toList();
 
     final hist = <({String date, String time, String sub, TagKind tag})>[
-      for (final s in mine.where((s) => s.status != SessionStatus.prevue).toList().reversed)
+      for (final s in pointed)
         (
-          date: '${dayNamesShort[s.day]} ${dateOf(0, s.day).day} oct.',
+          date: capitalized(dayShort(s.week, s.day)),
           time: range(s.start, s.end),
           sub: s.status == SessionStatus.manquee
               ? '${s.who == Who.moi ? 'Moi absent' : 'Élève absent'}${s.motif.isNotEmpty ? ' · ${s.motif.toLowerCase()}' : ''}${s.noRedo ? ' · pas de rattrapage' : ''}'
@@ -180,7 +237,7 @@ class _Fiche extends StatelessWidget {
         (date: h.date, time: h.time, sub: h.motif ?? 'Séance', tag: tagOfStatus(h.status)),
     ];
 
-    final msg = app.programmeOf(id, 0);
+    final msg = app.programmeOf(id, cw);
 
     return ScreenBody(
       children: [
@@ -215,7 +272,7 @@ class _Fiche extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(dayLong(0, s.day), style: AppText.body(15, weight: FontWeight.w500)),
+                          Text(dayLong(cw, s.day), style: AppText.body(15, weight: FontWeight.w500)),
                           Text(range(s.start, s.end), style: AppText.heading(17)),
                         ],
                       ),
@@ -292,7 +349,7 @@ class _Fiche extends StatelessWidget {
 
   String _placedLabel(Due u) {
     final ps = app.sessionById(u.placedSession);
-    return ps != null ? 'Casée ${dayShort(ps.week, ps.day)} · ${range(ps.start, ps.end)}' : 'À caser';
+    return ps != null ? 'Placée ${dayShort(ps.week, ps.day)} · ${range(ps.start, ps.end)}' : 'À placer';
   }
 }
 
