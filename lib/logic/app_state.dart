@@ -364,6 +364,19 @@ class AppState extends ChangeNotifier {
 
   int get fromWork => travelEnabled ? 30 : 0;
 
+  /// Règle bloquante : un élève n'a jamais deux séances le même jour.
+  /// Retourne le motif du refus, null si la semaine [ss] est valide.
+  String? sameDayConflict(List<Session> ss) {
+    final seen = <(String, int)>{};
+    for (final s in ss) {
+      if (!isEleve(s.svc) || s.status == SessionStatus.manquee) continue;
+      if (!seen.add((s.svc, s.day))) {
+        return 'Impossible : ${svc(s.svc).first} aurait deux séances le ${dayNamesLower[s.day]}.';
+      }
+    }
+    return null;
+  }
+
   /// Règles non respectées par la séance [s] dans la semaine [ss] (aperçu modifié).
   /// Ce ne sont que des avertissements : la séance peut être validée quand même.
   List<String> issuesOf(Session s, List<Session> ss, int w) {

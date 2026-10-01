@@ -77,7 +77,16 @@ class _GenerationSheetState extends State<_GenerationSheet> {
 
   /// Dernière modification, pour « Défaire ».
   ({List<Session> ss, Set<String> edited, bool changed})? _before;
-  String? _lastAction;
+
+  /// Modification refusée (règle bloquante), affichée quelques secondes.
+  String? _refusal;
+  Timer? _refusalTimer;
+
+  @override
+  void dispose() {
+    _refusalTimer?.cancel();
+    super.dispose();
+  }
 
   /// Glisser en cours : les jours vides deviennent des zones de dépôt.
   bool _dragging = false;
@@ -88,13 +97,23 @@ class _GenerationSheetState extends State<_GenerationSheet> {
   Session _byId(String id) => _ss.firstWhere((s) => s.id == id);
 
   void _apply(String label, List<Session> next, Iterable<String> ids) {
+    final refusal = app.sameDayConflict(next);
+    if (refusal != null) {
+      HapticFeedback.heavyImpact();
+      _refusalTimer?.cancel();
+      _refusalTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted) setState(() => _refusal = null);
+      });
+      setState(() => _refusal = refusal);
+      return;
+    }
     HapticFeedback.selectionClick();
     setState(() {
+      _refusal = null;
       _before = (ss: _ss, edited: {..._edited}, changed: _changed);
       _ss = next;
       _edited.addAll(ids);
       _changed = true;
-      _lastAction = label;
     });
   }
 
@@ -108,7 +127,6 @@ class _GenerationSheetState extends State<_GenerationSheet> {
         ..addAll(b.edited);
       _changed = b.changed;
       _before = null;
-      _lastAction = null;
     });
   }
 
@@ -220,7 +238,7 @@ class _GenerationSheetState extends State<_GenerationSheet> {
     Navigator.pop(context);
   }
 
-  Widget _line(Session s) {
+  Widget _line(Session s, {bool showDay = false}) {
     final issues = app.issuesOf(s, _ss, w);
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -228,7 +246,7 @@ class _GenerationSheetState extends State<_GenerationSheet> {
         Row(
           children: [
             Expanded(
-              child: _SessionLine(app: app, session: s),
+              child: _SessionLine(app: app, session: s, showDay: showDay),
             ),
             if (_edited.contains(s.id)) const _MiniTag('Modifiée'),
           ],
@@ -269,7 +287,7 @@ class _GenerationSheetState extends State<_GenerationSheet> {
             border: Border.all(color: AppColors.accent),
             boxShadow: AppColors.shadowLg,
           ),
-          child: _SessionLine(app: app, session: s),
+          child: _SessionLine(app: app, session: s, showDay: showDay),
         ),
       ),
       childWhenDragging: Opacity(opacity: .35, child: content),
@@ -375,6 +393,18 @@ class _GenerationSheetState extends State<_GenerationSheet> {
             ],
           ),
           const SizedBox(height: 6),
+          Blueprint(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final s in sessions.where((s) => s.svc == id)) _line(s, showDay: true),
+                if (!sessions.any((s) => s.svc == id))
+                  Text('Pas de séance cette semaine.', style: AppText.body(14, color: AppColors.neutral700)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
           _CopyCard(
             text: app.programmeOf(id, w, _ss),
             child: Text(app.programmeOf(id, w, _ss), style: AppText.body(14, height: 1.5)),
@@ -406,10 +436,39 @@ class _GenerationSheetState extends State<_GenerationSheet> {
                 children: [
                   Text('Aperçu ${weekSpan(w)}', style: AppText.heading(24)),
                   const SizedBox(height: 2),
-                  Text(
-                    '$summary · rien n’est enregistré avant validation.',
-                    style: AppText.body(14, color: AppColors.neutral700),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '$summary · rien n’est enregistré avant validation.',
+                          style: AppText.body(14, color: AppColors.neutral700),
+                        ),
+                      ),
+                      if (_before != null) GhostButton(label: 'Défaire', onPressed: _undo),
+                    ],
                   ),
+                  if (_refusal != null) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.warningBg,
+                        border: Border.all(color: AppColors.warning),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      child: Row(
+                        children: [
+                          const AppIcon(AppIcons.x, size: 16, color: AppColors.warning),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _refusal!,
+                              style: AppText.body(13, color: AppColors.warning, weight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   if (warnings > 0) ...[
                     const SizedBox(height: 6),
                     Container(
@@ -450,28 +509,6 @@ class _GenerationSheetState extends State<_GenerationSheet> {
                 children: body,
               ),
             ),
-            if (_lastAction != null)
-              Container(
-                margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                padding: const EdgeInsets.only(left: 12),
-                color: AppColors.neutral900,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(_lastAction!, style: AppText.body(14, color: Colors.white)),
-                    ),
-                    Tap(
-                      onTap: _undo,
-                      constraints: const BoxConstraints(minHeight: 44),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: Center(
-                        widthFactor: 1,
-                        child: Text('Défaire', style: AppText.heading(15, color: AppColors.accent300)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               child: Row(

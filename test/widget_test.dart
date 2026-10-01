@@ -86,6 +86,16 @@ void main() {
       expect((jsonDecode(api.requests[1].body) as Map)['changes'], {'sondo': 'une'});
     });
 
+    test('aperçu : jamais deux séances le même jour pour un élève', () async {
+      final app = await loaded(FakeApi());
+      final ss = app.week(0).where((s) => app.isEleve(s.svc)).toList();
+      expect(app.sameDayConflict(ss), isNull);
+      final a = ss.first;
+      final b = ss.firstWhere((s) => s.svc == a.svc && s.id != a.id);
+      final moved = [for (final s in ss) s.id == b.id ? s.copyWith(day: a.day) : s];
+      expect(app.sameDayConflict(moved), contains('deux séances le'));
+    });
+
     test('trajets : désactivés par défaut, séances bout à bout', () async {
       final app = await loaded(FakeApi());
       expect(app.travelEnabled, isFalse);
