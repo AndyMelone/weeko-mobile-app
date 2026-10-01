@@ -14,6 +14,7 @@ import '../../logic/app_state.dart';
 import '../../logic/nav_state.dart';
 import '../shared/screen_header.dart';
 import '../shared/session_row.dart';
+import '../shared/session_sheets.dart';
 
 class _Alert {
   const _Alert(this.title, this.detail, this.action, this.onTap);
@@ -142,7 +143,7 @@ class _SemaineScreenState extends State<SemaineScreen> {
                     ? '${app.titleOf(p)} finit à ${fmt(p.end)}, ${app.titleOf(s)} commence à ${fmt(s.start)} : $need min de trajet, ${margin <= 0 ? 'aucune marge.' : '$margin min de marge.'}'
                     : '${app.titleOf(p)} finit à ${fmt(p.end)}, ${app.titleOf(s)} commence à ${fmt(s.start)}.',
                 'Voir',
-                () => nav.openPointer(s.id),
+                () => showSessionSheet(context, app, nav, s),
               ),
             );
           }
@@ -167,7 +168,7 @@ class _SemaineScreenState extends State<SemaineScreen> {
                 : '${dayNamesLong[d]} · avant la sortie du travail',
             'Sortie à ${fmt(off)}, ${app.titleOf(list.first)} commence à ${fmt(list.first.start)}.',
             'Voir',
-            () => nav.openPointer(list.first.id),
+            () => showSessionSheet(context, app, nav, list.first),
           ),
         );
       }
@@ -195,19 +196,6 @@ class _SemaineScreenState extends State<SemaineScreen> {
           () => nav.openPreparer(w),
         ),
       );
-    }
-    for (final c in app.classes.values) {
-      final n = app.unplaced(c.id, w);
-      if (n > 0) {
-        alerts.add(
-          _Alert(
-            '${c.name} · ${app.svc(c.siteId).name}',
-            '${plural(n, 'séance')} non placée${n > 1 ? 's' : ''} cette semaine.',
-            'Placer',
-            () => nav.go(AppScreen.rattrapages),
-          ),
-        );
-      }
     }
     if (w == cw) {
       for (final u in app.dues.where((u) => !u.done && u.placedSession == null)) {
@@ -332,7 +320,7 @@ class _SemaineScreenState extends State<SemaineScreen> {
             _SessionItem(:final session) => SessionRow(
               session: session,
               app: app,
-              onTap: () => nav.openPointer(session.id),
+              onTap: () => showSessionSheet(context, app, nav, session),
             ),
             _GapItem(:final label, :final bad) => _TravelGap(label: label, bad: bad),
           },

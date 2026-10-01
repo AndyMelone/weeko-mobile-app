@@ -123,7 +123,8 @@ class _PointerScreenState extends State<PointerScreen> {
                           label: 'Faite',
                           icon: AppIcons.check,
                           selected: _chosen && !d.missed,
-                          onTap: () => _set(d.copyWith(missed: false)),
+                          // Pas avant le début de la séance.
+                          onTap: app.hasStarted(s) ? () => _set(d.copyWith(missed: false)) : null,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -137,6 +138,11 @@ class _PointerScreenState extends State<PointerScreen> {
                       ),
                     ],
                   ),
+                  if (!app.hasStarted(s))
+                    Text(
+                      'Séance pas encore commencée : « Faite » possible à partir de ${fmt(s.start)}.',
+                      style: AppText.body(13, color: AppColors.neutral700),
+                    ),
                 ],
               ),
               if (_chosen && d.missed) ...[
@@ -246,11 +252,11 @@ class _StatusButton extends StatelessWidget {
   final String label;
   final AppIcons icon;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? AppColors.bg : AppColors.text;
+    final fg = selected ? AppColors.bg : (onTap == null ? AppColors.neutral400 : AppColors.text);
     return Tap(
       onTap: onTap,
       color: selected ? AppColors.accent : Colors.transparent,

@@ -85,3 +85,13 @@ String toHhMm(int minutes) =>
 String plural(int n, String word) => '$n $word${n > 1 ? 's' : ''}';
 
 String capitalized(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+/// 25000 → « 25 000 F »
+String money(int amount) {
+  final digits = amount.abs().toString();
+  final groups = <String>[];
+  for (var i = digits.length; i > 0; i -= 3) {
+    groups.insert(0, digits.substring(i - 3 < 0 ? 0 : i - 3, i));
+  }
+  return '${amount < 0 ? '-' : ''}${groups.join('\u202f')} F';
+}

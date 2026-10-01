@@ -17,7 +17,10 @@ import '../../logic/app_state.dart';
 import '../../logic/labels.dart';
 import '../../logic/nav_state.dart';
 import '../shared/screen_header.dart';
+import '../shared/session_sheets.dart';
+import '../sites/sites_panel.dart';
 import 'add_student_form.dart';
+import 'money_section.dart';
 
 class EleveScreen extends StatelessWidget {
   const EleveScreen({super.key});
@@ -38,10 +41,12 @@ class EleveScreen extends StatelessWidget {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
+                      _SitesChip(selected: nav.showSites && !nav.addingStudent, onTap: nav.openSites),
+                      const SizedBox(width: 6),
                       for (final id in app.students) ...[
                         _StudentChip(
                           service: app.svc(id),
-                          selected: id == nav.studentId && !nav.addingStudent,
+                          selected: id == nav.studentId && !nav.addingStudent && !nav.showSites,
                           onTap: () => nav.selectStudent(id),
                           onLongPress: () {
                             HapticFeedback.mediumImpact();
@@ -104,6 +109,8 @@ class EleveScreen extends StatelessWidget {
                     }
                   },
                 )
+              : nav.showSites
+              ? const SitesPanel()
               : app.students.isEmpty
               ? Center(
                   child: Text(
@@ -167,6 +174,32 @@ Future<void> _confirmDelete(BuildContext context, AppState app, NavState nav, Se
     nav.showToast('${S.name} supprimé');
   } on ApiException catch (e) {
     nav.showToast(e.message);
+  }
+}
+
+/// Premier choix de la barre : réglages Succès Group.
+class _SitesChip extends StatelessWidget {
+  const _SitesChip({required this.selected, required this.onTap});
+
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tap(
+      onTap: onTap,
+      color: selected ? AppColors.neutral900 : Colors.transparent,
+      border: Border.all(color: AppColors.divider),
+      constraints: const BoxConstraints(minHeight: 44),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Center(
+        widthFactor: 1,
+        child: Text(
+          'Succès Group',
+          style: AppText.body(15, weight: FontWeight.w600, color: selected ? Colors.white : AppColors.text),
+        ),
+      ),
+    );
   }
 }
 
@@ -262,7 +295,7 @@ class _Fiche extends StatelessWidget {
           children: [
             for (final s in mine)
               Tap(
-                onTap: () => nav.openPointer(s.id),
+                onTap: () => showSessionSheet(context, app, nav, s),
                 border: Border.all(color: AppColors.divider),
                 constraints: const BoxConstraints(minHeight: 56),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -310,6 +343,7 @@ class _Fiche extends StatelessWidget {
               Text('Aucune séance à rattraper.', style: AppText.body(14, color: AppColors.neutral700)),
           ],
         ),
+        MoneySection(key: ValueKey('money-$id'), app: app, nav: nav, id: id),
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

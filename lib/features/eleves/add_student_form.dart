@@ -6,6 +6,7 @@ import '../../core/utils/formats.dart';
 import '../../core/widgets/buttons.dart';
 import '../../core/widgets/inputs.dart';
 import '../shared/screen_header.dart';
+import '../shared/session_sheets.dart';
 import '../../logic/app_state.dart';
 
 /// Formulaire élève : ajout, ou modification si [initial] est fourni.
@@ -24,12 +25,14 @@ class _AddStudentFormState extends State<AddStudentForm> {
   late final _f = widget.initial ?? StudentForm();
   late final _name = TextEditingController(text: _f.name);
   late final _phone = TextEditingController(text: _f.phone);
+  late final _rate = TextEditingController(text: _f.rate?.toString() ?? '');
   bool get _editing => widget.initial != null;
 
   @override
   void dispose() {
     _name.dispose();
     _phone.dispose();
+    _rate.dispose();
     super.dispose();
   }
 
@@ -188,6 +191,41 @@ class _AddStudentFormState extends State<AddStudentForm> {
             ],
           ),
         ),
+        FieldLabel(
+          label: 'Indisponibilités (jour et heures)',
+          child: BlocksEditor(blocks: _f.unavailable, onChanged: (b) => setState(() => _f.unavailable = b)),
+        ),
+        FieldLabel(
+          label: 'Tarif',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Segmented(
+                height: 44,
+                fontSize: 14,
+                options: [
+                  SegOption(
+                    label: 'Par séance',
+                    selected: _f.billing == 'seance',
+                    onTap: () => setState(() => _f.billing = 'seance'),
+                  ),
+                  SegOption(
+                    label: 'Forfait mensuel',
+                    selected: _f.billing == 'mois',
+                    onTap: () => setState(() => _f.billing = 'mois'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              AppTextField(
+                controller: _rate,
+                hint: _f.billing == 'mois' ? 'Montant par mois (FCFA)' : 'Montant par séance (FCFA)',
+                keyboardType: TextInputType.number,
+                onChanged: (v) => _f.rate = int.tryParse(v.replaceAll(RegExp(r'\D'), '')),
+              ),
+            ],
+          ),
+        ),
         Text(
           _editing
               ? 'Les changements s’appliquent à la prochaine génération du planning.'
@@ -205,7 +243,9 @@ class _AddStudentFormState extends State<AddStudentForm> {
               child: PrimaryButton(
                 label: _editing ? 'Enregistrer' : "Ajouter l'élève",
                 fontSize: 17,
-                onPressed: _f.name.trim().isEmpty ? null : () => widget.onSave(_f),
+                onPressed: _f.name.trim().isEmpty || _f.unavailable.any((b) => b.end <= b.start)
+                    ? null
+                    : () => widget.onSave(_f),
               ),
             ),
           ],

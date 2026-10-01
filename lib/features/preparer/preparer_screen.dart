@@ -1,13 +1,16 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
 import '../../core/utils/formats.dart';
 import '../../core/widgets/app_icon.dart';
 import '../../core/widgets/buttons.dart';
+import '../../core/widgets/confirm_sheet.dart';
 import '../../core/widgets/inputs.dart';
 import '../../core/widgets/misc.dart';
 import '../../data/api/api_client.dart';
@@ -15,6 +18,7 @@ import '../../data/models/models.dart';
 import '../../logic/app_state.dart';
 import '../../logic/nav_state.dart';
 import '../shared/screen_header.dart';
+import '../shared/session_sheets.dart';
 import 'generation_sheet.dart';
 
 class PreparerScreen extends StatelessWidget {
@@ -86,16 +90,44 @@ class PreparerScreen extends StatelessWidget {
                         : 'Trajets non comptés : les séances peuvent s’enchaîner, rien après 21h30.',
                     style: AppText.body(13, color: AppColors.neutral700),
                   ),
-                  if (app.tutorUnavailable.isNotEmpty)
-                    Text(
-                      'Tes indisponibilités : ${app.tutorUnavailable.map((b) => '${dayNamesLower[b.day]} ${b.label}').join(', ')}.',
-                      style: AppText.body(13, color: AppColors.neutral700),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          app.tutorUnavailable.isEmpty
+                              ? 'Aucune indisponibilité.'
+                              : 'Tes indisponibilités : ${app.tutorUnavailable.map((b) => '${dayNamesLower[b.day]} ${b.label}').join(', ')}.',
+                          style: AppText.body(13, color: AppColors.neutral700),
+                        ),
+                      ),
+                      GhostButton(
+                        label: 'Modifier',
+                        onPressed: () async {
+                          final blocks = await showBlocksSheet(
+                            context,
+                            title: 'Tes indisponibilités',
+                            initial: app.tutorUnavailable,
+                          );
+                          if (blocks == null) return;
+                          try {
+                            await app.setTutorUnavailable(blocks);
+                            nav.showToast('Indisponibilités enregistrées · prises en compte à la prochaine génération');
+                          } on ApiException catch (e) {
+                            nav.showToast(e.message);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
                 ],
               ),
               Section(
                 title: 'Séances Succès Group cette semaine',
                 children: [
+                  Text(
+                    'Ajoute les séances données par le président (jour et heures). Les élèves sont placés autour.',
+                    style: AppText.body(13, color: AppColors.neutral700),
+                  ),
                   Bordered(
                     children: [
                       for (final c in app.classes.values)
@@ -103,7 +135,6 @@ class PreparerScreen extends StatelessWidget {
                           site: app.svc(c.siteId),
                           name: c.name,
                           times: prep.times[c.id],
-                          autoCount: prep.counts[c.id] ?? 0,
                           onChanged: (ts) => edit((p) => p.times[c.id] = ts),
                         ),
                     ],
@@ -114,30 +145,31 @@ class PreparerScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              Section(
-                title: 'Séances déjà décidées',
-                children: [
-                  for (final s in app.decided)
-                    Container(
-                      constraints: const BoxConstraints(minHeight: 48),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(border: Border.all(color: AppColors.divider)),
-                      child: Row(
-                        children: [
-                          CodeBadge(code: app.svc(s.svc).code, color: app.svc(s.svc).color, size: 28, fontSize: 12),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              '${app.titleOf(s)}${s.cls != null ? ' · ${app.svc(s.svc).name}' : ''}',
-                              style: AppText.body(15),
+              if (app.decided.isNotEmpty)
+                Section(
+                  title: 'Séances déjà décidées',
+                  children: [
+                    for (final s in app.decided)
+                      Container(
+                        constraints: const BoxConstraints(minHeight: 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(border: Border.all(color: AppColors.divider)),
+                        child: Row(
+                          children: [
+                            CodeBadge(code: app.svc(s.svc).code, color: app.svc(s.svc).color, size: 28, fontSize: 12),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '${app.titleOf(s)}${s.cls != null ? ' · ${app.svc(s.svc).name}' : ''}',
+                                style: AppText.body(15),
+                              ),
                             ),
-                          ),
-                          Text('${dayNamesShort[s.day]} ${range(s.start, s.end)}', style: AppText.heading(16)),
-                        ],
+                            Text('${dayNamesShort[s.day]} ${range(s.start, s.end)}', style: AppText.heading(16)),
+                          ],
+                        ),
                       ),
-                    ),
-                ],
-              ),
+                  ],
+                ),
               Section(
                 title: 'Changements cette semaine',
                 children: [
@@ -189,6 +221,10 @@ class PreparerScreen extends StatelessWidget {
                     Text('Aucune séance à rattraper.', style: AppText.body(14, color: AppColors.neutral700)),
                 ],
               ),
+              Section(
+                title: 'Agenda du téléphone',
+                children: [_CalendarSync(app: app, nav: nav)],
+              ),
             ],
           ),
         ),
@@ -213,16 +249,17 @@ class PreparerScreen extends StatelessWidget {
                   return;
                 }
                 if (!context.mounted) return;
-                final ok = await showGenerationSheet(
+                final edited = await showGenerationSheet(
                   context,
                   app: app,
                   week: w,
                   message: draft.message,
                   sessions: draft.sessions,
                 );
-                if (ok != true) return;
+                if (edited == null) return;
                 try {
-                  final msg = await app.generate(w);
+                  // L'aperçu (éventuellement modifié) est enregistré tel quel.
+                  final msg = await app.generate(w, sessions: edited);
                   nav.setWeek(w);
                   nav.go(AppScreen.semaine);
                   nav.showToast('Planning validé · $msg');
@@ -269,19 +306,12 @@ class _OffRow extends StatelessWidget {
 }
 
 class _ClassTimes extends StatelessWidget {
-  const _ClassTimes({
-    required this.site,
-    required this.name,
-    required this.times,
-    required this.autoCount,
-    required this.onChanged,
-  });
+  const _ClassTimes({required this.site, required this.name, required this.times, required this.onChanged});
 
   final Service site;
   final String name;
 
   final List<ClassTime>? times;
-  final int autoCount;
   final ValueChanged<List<ClassTime>> onChanged;
 
   static const _maxPerWeek = 7;
@@ -354,14 +384,6 @@ class _ClassTimes extends StatelessWidget {
                 ),
             ],
           ),
-          if (times == null && autoCount > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                '${plural(autoCount, 'séance')} placée${autoCount > 1 ? 's' : ''} par le planning. Ajoutez les créneaux pour choisir jour et heures.',
-                style: AppText.body(13, color: AppColors.neutral700),
-              ),
-            ),
           for (var i = 0; i < ts.length; i++)
             Padding(
               padding: const EdgeInsets.only(top: 6),
@@ -466,6 +488,89 @@ class _CatchupRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Abonnement de l'agenda du téléphone au flux .ics des séances.
+class _CalendarSync extends StatelessWidget {
+  const _CalendarSync({required this.app, required this.nav});
+
+  final AppState app;
+  final NavState nav;
+
+  Future<void> _run(Future<void> Function() fn) async {
+    try {
+      await fn();
+    } on ApiException catch (e) {
+      nav.showToast(e.message);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final url = app.calendarUrl;
+    if (url == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Tes séances apparaissent dans l’agenda du téléphone et se mettent à jour toutes seules.',
+            style: AppText.body(13, color: AppColors.neutral700),
+          ),
+          const SizedBox(height: 8),
+          SecondaryButton(
+            label: 'Activer la synchronisation',
+            icon: AppIcons.calendarPlus,
+            onPressed: () => _run(app.enableCalendar),
+          ),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PrimaryButton(
+          label: 'S’abonner dans Calendrier',
+          icon: AppIcons.calendarPlus,
+          onPressed: () => _run(() async {
+            final ok = await launchUrl(Uri.parse(app.calendarWebcal!), mode: LaunchMode.externalApplication);
+            if (!ok) nav.showToast('Impossible d’ouvrir Calendrier');
+          }),
+        ),
+        const SizedBox(height: 8),
+        SecondaryButton(
+          label: 'Copier le lien (Google Agenda)',
+          icon: AppIcons.copy,
+          onPressed: () => _run(() async {
+            await Clipboard.setData(ClipboardData(text: url));
+            nav.showToast('Lien copié · Google Agenda › Autres agendas › À partir de l’URL');
+          }),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Lien privé : ne le partage pas. Apple Calendrier se met à jour vite ; Google Agenda peut prendre plusieurs heures.',
+          style: AppText.body(12, color: AppColors.neutral700),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: GhostButton(
+            label: 'Renouveler le lien',
+            onPressed: () => _run(() async {
+              final ok = await showConfirmSheet(
+                context,
+                title: 'Renouveler le lien ?',
+                message: 'L’ancien lien cessera de marcher : il faudra te réabonner dans ton agenda.',
+                confirmLabel: 'Renouveler',
+              );
+              if (ok) {
+                await app.enableCalendar();
+                nav.showToast('Nouveau lien prêt');
+              }
+            }),
+          ),
+        ),
+      ],
     );
   }
 }

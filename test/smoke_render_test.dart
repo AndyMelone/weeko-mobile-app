@@ -18,7 +18,10 @@ void main() {
     await tester.pump();
     expect(find.text("AUJOURD'HUI"), findsOneWidget);
     await tester.tap(find.text('Adjé').first);
-    await tester.pump();
+    await tester.pumpAndSettle();
+    // Feuille de séance (lundi, déjà passée) → Pointer.
+    await tester.tap(find.text('Pointer la séance'));
+    await tester.pumpAndSettle();
     expect(find.text('Pointer la séance'), findsOneWidget);
     await tester.tap(find.text('Manquée'));
     await tester.pump();

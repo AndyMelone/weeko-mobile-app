@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import '../../core/utils/formats.dart';
 import '../models/models.dart';
 
 typedef Json = Map<String, dynamic>;
@@ -20,12 +21,28 @@ Service serviceFromJson(Json j) => Service(
   notAfter: j['notAfter'],
   fixed: [for (final f in j['fixed'] as List) FixedSlot(day: f['day'], start: f['start'])],
   unavailable: blocksFromJson(j['unavailable']),
+  rate: j['rate'],
+  billing: j['billing'] ?? 'seance',
   phone: j['phone'],
   phoneLabel: j['phoneLabel'],
 );
 
 SchoolClass classFromJson(Json j) =>
     SchoolClass(id: j['id'], name: j['name'], siteId: j['siteId'], defaultCount: j['defaultCount'] ?? 0);
+
+/// Séance de l'aperçu envoyée à la validation (POST /weeks/:w/generate).
+Json sessionToJson(Session s) => {
+  'id': s.id,
+  'day': s.day,
+  'start': s.start,
+  'end': s.end,
+  'svc': s.svc,
+  'cls': s.cls,
+  'kind': s.kind.name,
+  'dueId': s.dueId,
+  'fixed': s.fixed,
+  'base': s.base,
+};
 
 Session sessionFromJson(Json j) => Session(
   id: j['id'],
@@ -90,4 +107,14 @@ HistoryEntry historyFromJson(Json j) =>
 
 List<TimeBlock> blocksFromJson(dynamic list) => [
   for (final b in (list as List?) ?? const []) TimeBlock(day: b['day'], start: b['start'], end: b['end']),
+];
+
+Payment paymentFromJson(Json j) =>
+    Payment(id: j['id'], serviceId: j['serviceId'], amount: j['amount'], paidOn: j['paidOn'], note: j['note'] ?? '');
+
+Json slotToJson(Slot s) => {'week': s.week, 'day': s.day, 'start': s.start, 'end': s.end};
+
+/// Fin de journée (1440) envoyée en « 23:59 ».
+List<Json> blocksToJson(List<TimeBlock> blocks) => [
+  for (final b in blocks) {'day': b.day, 'start': toHhMm(b.start), 'end': b.end >= 1440 ? '23:59' : toHhMm(b.end)},
 ];

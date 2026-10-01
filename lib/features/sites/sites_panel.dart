@@ -14,9 +14,9 @@ import '../../logic/app_state.dart';
 import '../../logic/nav_state.dart';
 import '../shared/screen_header.dart';
 
-/// Réglages Succès Group : sites et classes. Écran sans onglet, ouvert depuis Préparer.
-class SitesScreen extends StatelessWidget {
-  const SitesScreen({super.key});
+/// Réglages Succès Group : sites et classes. Premier choix de l'onglet Élèves.
+class SitesPanel extends StatelessWidget {
+  const SitesPanel({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -95,15 +95,6 @@ class SitesScreen extends StatelessWidget {
     final sites = app.sites;
     return Column(
       children: [
-        HeaderBar(
-          child: Row(
-            children: [
-              SquareIconButton(icon: AppIcons.arrowLeft, onPressed: nav.closePointer, tooltip: 'Retour'),
-              const SizedBox(width: 8),
-              Text('Succès Group', style: AppText.heading(24)),
-            ],
-          ),
-        ),
         Expanded(
           child: ScreenBody(
             children: [

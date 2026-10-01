@@ -48,6 +48,8 @@ class Service {
     this.notAfter,
     this.fixed = const [],
     this.unavailable = const [],
+    this.rate,
+    this.billing = 'seance',
     this.phone = '',
     this.phoneLabel = '',
   }) : first = first ?? name;
@@ -65,6 +67,10 @@ class Service {
   final int? notAfter;
   final List<FixedSlot> fixed;
   final List<TimeBlock> unavailable;
+
+  /// Tarif en FCFA : par séance faite (billing « seance ») ou forfait mensuel (« mois »).
+  final int? rate;
+  final String billing;
 
   final String phone;
   final String phoneLabel;
@@ -123,6 +129,9 @@ class Session {
   Session copyWith({
     String? id,
     int? week,
+    int? day,
+    int? start,
+    int? end,
     SessionStatus? status,
     Who? Function()? who,
     String? motif,
@@ -131,9 +140,9 @@ class Session {
   }) => Session(
     id: id ?? this.id,
     week: week ?? this.week,
-    day: day,
-    start: start,
-    end: end,
+    day: day ?? this.day,
+    start: start ?? this.start,
+    end: end ?? this.end,
     svc: svc,
     cls: cls,
     status: status ?? this.status,
@@ -233,4 +242,21 @@ class Slot {
   final int day;
   final int start;
   final int end;
+}
+
+/// Paiement reçu d'un parent (FCFA). [paidOn] : « YYYY-MM-DD ».
+class Payment {
+  const Payment({
+    required this.id,
+    required this.serviceId,
+    required this.amount,
+    required this.paidOn,
+    this.note = '',
+  });
+
+  final String id;
+  final String serviceId;
+  final int amount;
+  final String paidOn;
+  final String note;
 }

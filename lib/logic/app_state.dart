@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/utils/formats.dart';
 import '../data/api/api_client.dart';
@@ -46,6 +49,12 @@ class ProposalChoice extends SlotChoice {
   final int index;
 }
 
+/// Créneau précis saisi à la main (ex. donné par le président de Succès Group).
+class SlotPick extends SlotChoice {
+  const SlotPick(this.slot);
+  final Slot slot;
+}
+
 class DayChoice extends SlotChoice {
   const DayChoice(this.day);
   final int day;
@@ -81,7 +90,10 @@ class StudentForm {
       }.toList()..sort(),
       notBefore = s.notBefore == null ? '' : toHhMm(s.notBefore!),
       notAfter = s.notAfter == null ? '' : toHhMm(s.notAfter!),
-      fixed = [for (final f in s.fixed) (day: f.day, time: toHhMm(f.start))];
+      fixed = [for (final f in s.fixed) (day: f.day, time: toHhMm(f.start))],
+      unavailable = [...s.unavailable],
+      rate = s.rate,
+      billing = s.billing;
 
   String name = '';
   String phone = '';
@@ -91,6 +103,9 @@ class StudentForm {
   String notAfter = '';
 
   List<({int day, String time})> fixed = [];
+  List<TimeBlock> unavailable = [];
+  int? rate;
+  String billing = 'seance';
 
   Json toJson() => {
     'name': name.trim(),
@@ -102,6 +117,9 @@ class StudentForm {
     'fixed': [
       for (final x in fixed) {'day': x.day, 'time': x.time},
     ],
+    'unavailable': blocksToJson(unavailable),
+    'rate': rate,
+    'billing': billing,
   };
 }
 
@@ -131,17 +149,131 @@ class AppState extends ChangeNotifier {
   bool travelEnabled = false;
 
   List<TimeBlock> tutorUnavailable = [];
+
+  /// Paiements reçus (tous élèves), plus récents d'abord.
+  List<Payment> payments = [];
+
+  /// Jeton du flux agenda, null s'il n'est pas activé.
+  String? calendarToken;
+
+  // ─── Hors ligne ───────────────────────────────────────────────
+
+  /// Pas de réseau : l'app affiche le dernier planning enregistré.
+  bool offline = false;
+
+  /// Date du planning affiché quand on est hors ligne.
+  DateTime? cachedAt;
+
+  /// Pointages faits hors ligne, envoyés au retour du réseau.
+  List<Json> pendingPointers = [];
+
+  Timer? _retry;
+
+  static const _kState = 'weeko.state', _kStateAt = 'weeko.stateAt', _kQueue = 'weeko.queue';
+
   Future<void> load() async {
     try {
-      _apply(await api.get('/state') as Json);
+      await _replayQueue();
+      final j = await api.get('/state') as Json;
+      _apply(j);
       status = LoadStatus.ready;
       error = null;
+      offline = false;
+      _retry?.cancel();
+      _retry = null;
+      cachedAt = DateTime.now();
+      await _saveCache(j);
     } on ApiException catch (e) {
+      if (e.isNetwork) {
+        if (status != LoadStatus.ready) await _loadCache();
+        if (status == LoadStatus.ready) {
+          offline = true;
+          error = null;
+          // Nouvelle tentative régulière tant que le réseau manque.
+          _retry ??= Timer.periodic(const Duration(seconds: 30), (_) => load().catchError((_) {}));
+          notifyListeners();
+          return;
+        }
+      }
       if (status != LoadStatus.ready) status = LoadStatus.error;
       error = e.message;
       if (status == LoadStatus.ready) rethrow;
     }
     notifyListeners();
+  }
+
+  Future<void> _saveCache(Json j) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kState, jsonEncode(j));
+      await prefs.setString(_kStateAt, DateTime.now().toIso8601String());
+    } catch (_) {}
+  }
+
+  /// Dernier planning enregistré + pointages en attente, appliqués localement.
+  Future<void> _loadCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_kState);
+      if (raw == null) return;
+      _apply(jsonDecode(raw) as Json);
+      cachedAt = DateTime.tryParse(prefs.getString(_kStateAt) ?? '');
+      pendingPointers = await _readQueue(prefs);
+      for (final q in pendingPointers) {
+        _pointLocally(q['id'] as String, q['body'] as Json);
+      }
+      status = LoadStatus.ready;
+    } catch (_) {}
+  }
+
+  Future<List<Json>> _readQueue(SharedPreferences prefs) async => [
+    for (final x in jsonDecode(prefs.getString(_kQueue) ?? '[]') as List) x as Json,
+  ];
+
+  Future<void> _saveQueue() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kQueue, jsonEncode(pendingPointers));
+    } catch (_) {}
+  }
+
+  /// Envoie les pointages faits hors ligne, dans l'ordre. S'arrête au premier échec réseau.
+  Future<void> _replayQueue() async {
+    if (pendingPointers.isEmpty) {
+      try {
+        pendingPointers = await _readQueue(await SharedPreferences.getInstance());
+      } catch (_) {}
+    }
+    while (pendingPointers.isNotEmpty) {
+      final q = pendingPointers.first;
+      try {
+        await api.post('/sessions/${Uri.encodeComponent(q['id'] as String)}/pointer', q['body']);
+      } on ApiException catch (e) {
+        if (e.isNetwork) rethrow;
+        // Refusé par le serveur (séance supprimée…) : abandonné.
+        onError?.call('Pointage hors ligne non enregistré : ${e.message}');
+      }
+      pendingPointers = pendingPointers.sublist(1);
+      await _saveQueue();
+    }
+  }
+
+  /// Reflet local d'un pointage (statut de la séance) en attendant le serveur.
+  void _pointLocally(String id, Json body) {
+    final missed = body['missed'] == true;
+    sessions = [
+      for (final x in sessions)
+        x.id != id
+            ? x
+            : x.copyWith(
+                status: missed
+                    ? SessionStatus.manquee
+                    : (x.isRattrapage ? SessionStatus.rattrapee : SessionStatus.faite),
+                who: () => missed && body['who'] != null ? Who.values.byName(body['who']) : null,
+                motif: missed ? (body['motif'] ?? '') : '',
+                noRedo: missed && body['redo'] == false,
+              ),
+    ];
   }
 
   Future<void> retry() {
@@ -170,6 +302,8 @@ class AppState extends ChangeNotifier {
       ..addAll(List<int>.from(j['generated']));
     travelEnabled = (j['settings'] as Map?)?['travel'] == true;
     tutorUnavailable = blocksFromJson((j['settings'] as Map?)?['unavailable']);
+    calendarToken = (j['settings'] as Map?)?['calendarToken'];
+    payments = [for (final x in (j['payments'] as List? ?? const [])) paymentFromJson(x)];
     history
       ..clear()
       ..addAll({
@@ -188,6 +322,10 @@ class AppState extends ChangeNotifier {
       final res = await call();
       await load();
       return res is Json ? res : const {};
+    } on ApiException catch (e) {
+      if (!e.isNetwork) rethrow;
+      offline = true;
+      throw const ApiException('Hors ligne : action possible dès le retour du réseau.');
     } finally {
       busy = false;
       notifyListeners();
@@ -225,6 +363,40 @@ class AppState extends ChangeNotifier {
   }
 
   int get fromWork => travelEnabled ? 30 : 0;
+
+  /// Règles non respectées par la séance [s] dans la semaine [ss] (aperçu modifié).
+  /// Ce ne sont que des avertissements : la séance peut être validée quand même.
+  List<String> issuesOf(Session s, List<Session> ss, int w) {
+    final out = <String>[];
+    final d = s.day;
+    if (s.end > _dayEnd) out.add('Finit après 21h30');
+    final o = off(d, w);
+    if (o != null && s.start < o + fromWork) out.add('Avant la fin du travail (${fmt(o)})');
+    for (final x in ss) {
+      if (x.id == s.id || x.day != d || x.status == SessionStatus.manquee) continue;
+      if (s.start < x.end && x.start < s.end) {
+        out.add('Chevauche ${titleOf(x)} (${range(x.start, x.end)})');
+      } else {
+        final t = s.start >= x.end ? travel((svc: x.svc), (svc: s.svc)) : travel((svc: s.svc), (svc: x.svc));
+        if (s.start < x.end + t && x.start < s.end + t) out.add('Trajet trop court avec ${titleOf(x)}');
+      }
+    }
+    for (final b in blocksOn(s.svc, d)) {
+      if (s.start < b.end && b.start < s.end) out.add('Indisponible le ${dayNamesLower[d]} ${b.label}');
+    }
+    final S = svc(s.svc);
+    if (S.isEleve && !s.isRattrapage) {
+      if (S.noWeekend && d >= 5) out.add('${S.first} ne prend pas cours le week-end');
+      if (S.exDays.contains(d)) out.add('${S.first} ne prend jamais cours le ${dayNamesLower[d]}');
+      if (S.notBefore != null && s.start < S.notBefore!) out.add('Avant ${fmt(S.notBefore!)}');
+      if (S.notAfter != null && s.end > S.notAfter!) out.add('Après ${fmt(S.notAfter!)}');
+      final next = ss.where((x) => x.id != s.id && x.svc == s.svc && !x.isRattrapage && (x.day - d).abs() == 1);
+      for (final x in next) {
+        out.add('${S.first} a aussi cours ${dayNamesLower[x.day]} : jamais deux jours de suite');
+      }
+    }
+    return out;
+  }
 
   Future<void> setTravel(bool v) => _mutate(() => api.patch('/settings', {'travel': v}));
 
@@ -328,12 +500,6 @@ class AppState extends ChangeNotifier {
     return 'Pas de créneau Succès Group libre ce jour-là.';
   }
 
-  int unplaced(String c, int w, [List<Session>? ss]) {
-    if (!generated.contains(w) || prepOf(w).times.containsKey(c)) return 0;
-    final placed = week(w, ss).where((s) => s.cls == c && !s.isRattrapage).length;
-    return max(0, (prepOf(w).counts[c] ?? 0) - placed);
-  }
-
   List<RattItem> items() {
     final out = <RattItem>[];
     for (final u in dues.where((u) => !u.done)) {
@@ -352,23 +518,6 @@ class AppState extends ChangeNotifier {
         ),
       );
     }
-    for (final w in (generated.toList()..sort())) {
-      for (final c in classes.values) {
-        final n = unplaced(c.id, w);
-        for (var i = 0; i < n; i++) {
-          out.add(
-            RattItem(
-              key: 'u-$w${c.id}$i',
-              svc: c.siteId,
-              cls: c.id,
-              week: w,
-              title: '${c.name} · ${svc(c.siteId).name}',
-              detail: 'Séance demandée semaine du ${weekRange(w)}, aucun créneau trouvé par le planning.',
-            ),
-          );
-        }
-      }
-    }
     return [...out.where((i) => i.placed == null), ...out.where((i) => i.placed != null)];
   }
 
@@ -377,6 +526,7 @@ class AppState extends ChangeNotifier {
   Slot? resolveChoice(RattItem it, SlotChoice? choice) => switch (choice) {
     ProposalChoice(:final index) => proposals(it).elementAtOrNull(index),
     DayChoice(:final day) => slots(it.svc, onlyDay: day, w: it.week).firstOrNull,
+    SlotPick(:final slot) => slot,
     null => null,
   };
 
@@ -384,6 +534,7 @@ class AppState extends ChangeNotifier {
     final body = switch (choice) {
       ProposalChoice(:final index) => {'proposal': index},
       DayChoice(:final day) => {'day': day},
+      SlotPick(:final slot) => {'slot': slotToJson(slot)},
       null => null,
     };
     if (body == null) return null;
@@ -420,22 +571,166 @@ class AppState extends ChangeNotifier {
     return (message: res['message'] as String, sessions: [for (final x in res['sessions'] as List) sessionFromJson(x)]);
   }
 
-  Future<String> generate(int w) async {
+  /// Génère la semaine [w]. Avec [sessions] : enregistre l'aperçu (modifié) tel quel.
+  Future<String> generate(int w, {List<Session>? sessions}) async {
     await flushPrep();
-    final res = await _mutate(() => api.post('/weeks/$w/generate'));
+    final res = await _mutate(
+      () =>
+          api.post('/weeks/$w/generate', sessions == null ? null : {'sessions': sessions.map(sessionToJson).toList()}),
+    );
     return res['message'] as String;
   }
 
   Future<String> savePointer(String sessionId, PointerDraft d) async {
+    final body = <String, dynamic>{
+      'missed': d.missed,
+      if (d.missed && d.who != null) 'who': d.who!.name,
+      if (d.missed) 'motif': d.motif,
+      if (d.missed) 'redo': d.redo,
+    };
+    try {
+      final res = await _mutate(() => api.post('/sessions/${Uri.encodeComponent(sessionId)}/pointer', body));
+      return res['message'] as String;
+    } on ApiException {
+      if (!offline) rethrow;
+      // Hors ligne : gardé sur le téléphone, envoyé au retour du réseau.
+      pendingPointers = [
+        ...pendingPointers,
+        {'id': sessionId, 'body': body},
+      ];
+      await _saveQueue();
+      _pointLocally(sessionId, body);
+      notifyListeners();
+      return 'Hors ligne · pointage gardé, envoyé au retour du réseau';
+    }
+  }
+
+  // ─── Séances : déplacer, annuler ──────────────────────────────
+
+  /// Déplace ou change l'heure d'une séance prévue.
+  Future<String> moveSession(String id, Slot to) async {
+    final res = await _mutate(() => api.patch('/sessions/${Uri.encodeComponent(id)}', slotToJson(to)));
+    return res['message'] as String;
+  }
+
+  /// Annule une séance prévue (absence prévenue), avec ou sans rattrapage.
+  Future<String> cancelSession(String id, {required bool redo, Who? who, String motif = ''}) async {
     final res = await _mutate(
-      () => api.post('/sessions/${Uri.encodeComponent(sessionId)}/pointer', {
-        'missed': d.missed,
-        if (d.missed && d.who != null) 'who': d.who!.name,
-        if (d.missed) 'motif': d.motif,
-        if (d.missed) 'redo': d.redo,
+      () => api.post('/sessions/${Uri.encodeComponent(id)}/cancel', {
+        'redo': redo,
+        if (who != null) 'who': who.name,
+        if (motif.isNotEmpty) 'motif': motif,
       }),
     );
     return res['message'] as String;
+  }
+
+  /// La séance a-t-elle commencé ? (« Faite » n'est possible qu'à partir du début.)
+  bool hasStarted(Session s) {
+    final t = today();
+    final now = clock();
+    final nowMin = now.hour * 60 + now.minute;
+    return s.week < t.week || (s.week == t.week && (s.day < t.day || (s.day == t.day && s.start <= nowMin)));
+  }
+
+  // ─── Indisponibilités du répétiteur ───────────────────────────
+
+  Future<void> setTutorUnavailable(List<TimeBlock> blocks) =>
+      _mutate(() => api.patch('/settings', {'unavailable': blocksToJson(blocks)}));
+
+  // ─── Agenda ───────────────────────────────────────────────────
+
+  /// Active (ou renouvelle) le flux agenda : l'ancien lien cesse de marcher.
+  Future<void> enableCalendar() => _mutate(() => api.post('/settings/calendar'));
+
+  /// Lien https du flux (Google Agenda : « À partir de l'URL »).
+  String? get calendarUrl => calendarToken == null ? null : '${api.baseUrl}/calendar/$calendarToken.ics';
+
+  /// Lien webcal:// (Apple Calendrier : abonnement direct).
+  String? get calendarWebcal => calendarUrl?.replaceFirst(RegExp(r'^https?://'), 'webcal://');
+
+  // ─── Argent ───────────────────────────────────────────────────
+
+  Future<void> addPayment(String studentId, {required int amount, required String date, String note = ''}) => _mutate(
+    () => api.post('/students/${Uri.encodeComponent(studentId)}/payments', {
+      'amount': amount,
+      'date': date,
+      if (note.trim().isNotEmpty) 'note': note.trim(),
+    }),
+  );
+
+  Future<void> removePayment(String studentId, String paymentId) => _mutate(
+    () => api.delete('/students/${Uri.encodeComponent(studentId)}/payments/${Uri.encodeComponent(paymentId)}'),
+  );
+
+  /// Séances faites (ou rattrapées) de l'élève [id] pendant le mois [month] (1–12) de [year].
+  List<Session> doneIn(String id, int year, int month) => [
+    for (final s in sessions)
+      if (s.svc == id &&
+          (s.status == SessionStatus.faite || s.status == SessionStatus.rattrapee) &&
+          dateOf(s.week, s.day).year == year &&
+          dateOf(s.week, s.day).month == month)
+        s,
+  ];
+
+  /// Paiements de l'élève [id] pendant le mois [month] de [year].
+  List<Payment> paymentsIn(String id, int year, int month) =>
+      payments.where((p) => p.serviceId == id && p.paidOn.startsWith(_monthKey(year, month))).toList();
+
+  static String _monthKey(int y, int m) => '$y-${m.toString().padLeft(2, '0')}';
+
+  /// Bilan du mois : dû (selon le tarif), payé, reste ; et solde total jusqu'à ce mois.
+  ({int done, int due, int paid, int left, int balance}) financeOf(String id, int year, int month) {
+    final S = svc(id);
+    int dueIn(int y, int m) => S.rate == null
+        ? 0
+        : S.billing == 'mois'
+        ? S.rate!
+        : doneIn(id, y, m).length * S.rate!;
+    final until = _monthKey(year, month);
+    final mine = payments.where((p) => p.serviceId == id).toList();
+    // Du premier mois avec une séance faite ou un paiement jusqu'au mois affiché.
+    final months = <String>{
+      for (final s in sessions.where(
+        (s) => s.svc == id && (s.status == SessionStatus.faite || s.status == SessionStatus.rattrapee),
+      ))
+        _monthKey(dateOf(s.week, s.day).year, dateOf(s.week, s.day).month),
+      for (final p in mine) p.paidOn.substring(0, 7),
+      until,
+    }.where((k) => k.compareTo(until) <= 0).toList()..sort();
+    var totalDue = 0;
+    var y = int.parse(months.first.substring(0, 4)), m = int.parse(months.first.substring(5));
+    while (_monthKey(y, m).compareTo(until) <= 0) {
+      totalDue += dueIn(y, m);
+      if (++m > 12) {
+        m = 1;
+        y++;
+      }
+    }
+    final totalPaid = mine.where((p) => p.paidOn.substring(0, 7).compareTo(until) <= 0).fold(0, (a, p) => a + p.amount);
+    final due = dueIn(year, month);
+    final paid = paymentsIn(id, year, month).fold(0, (a, p) => a + p.amount);
+    return (
+      done: doneIn(id, year, month).length,
+      due: due,
+      paid: paid,
+      left: due - paid,
+      balance: totalDue - totalPaid,
+    );
+  }
+
+  /// Récap du mois à envoyer au parent.
+  String financeMessage(String id, int year, int month) {
+    final S = svc(id);
+    final f = financeOf(id, year, month);
+    final detail = S.billing == 'mois'
+        ? 'Forfait du mois : ${money(f.due)}'
+        : '${f.done} séance${f.done > 1 ? 's' : ''} faite${f.done > 1 ? 's' : ''}${S.rate != null ? ' × ${money(S.rate!)} = ${money(f.due)}' : ''}';
+    return 'Bonjour,\nRécapitulatif de ${S.first} pour ${monthNames[month - 1]} $year :\n'
+        '– $detail\n'
+        '– Payé : ${money(f.paid)}\n'
+        '– Reste à payer : ${money(f.balance > 0 ? f.balance : 0)}\n'
+        'Merci.';
   }
 
   Future<String> addStudent(StudentForm f) async {
@@ -480,6 +775,7 @@ class AppState extends ChangeNotifier {
 
   @override
   void dispose() {
+    _retry?.cancel();
     for (final t in _prepTimers.values) {
       t.cancel();
     }

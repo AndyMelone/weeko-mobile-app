@@ -8,6 +8,10 @@ abstract final class AppColors {
 
   static const divider = Color(0x291D1F20);
 
+  /// Avertissement non bloquant (règle non respectée dans un aperçu modifié).
+  static const warning = Color(0xFFA15C07);
+  static const warningBg = Color(0xFFFBF1E3);
+
   static const neutral200 = Color(0xFFE7E7EA);
   static const neutral300 = Color(0xFFD4D4D7);
   static const neutral400 = Color(0xFFB7B7BA);

@@ -15,6 +15,7 @@ import '../../data/models/models.dart';
 import '../../logic/app_state.dart';
 import '../../logic/nav_state.dart';
 import '../shared/screen_header.dart';
+import '../shared/session_sheets.dart';
 import 'ics_export.dart';
 
 class RattrapagesScreen extends StatefulWidget {
@@ -65,6 +66,14 @@ class _RattrapagesScreenState extends State<RattrapagesScreen> {
                       nav.showToast(e.message);
                     }
                   },
+                  onPlaceSlot: (slot) async {
+                    try {
+                      final msg = await app.place(it, SlotPick(slot));
+                      if (msg != null) nav.showToast(msg);
+                    } on ApiException catch (e) {
+                      nav.showToast(e.message);
+                    }
+                  },
                   onView: () => nav.goDay(it.placedSession!.week, it.placedSession!.day),
                   onCancel: () async {
                     try {
@@ -95,6 +104,7 @@ class _ItemCard extends StatelessWidget {
     required this.choice,
     required this.onChoice,
     required this.onPlace,
+    required this.onPlaceSlot,
     required this.onView,
     required this.onCancel,
   });
@@ -104,6 +114,7 @@ class _ItemCard extends StatelessWidget {
   final SlotChoice? choice;
   final ValueChanged<SlotChoice> onChoice;
   final VoidCallback onPlace;
+  final ValueChanged<Slot> onPlaceSlot;
   final VoidCallback onView;
   final VoidCallback onCancel;
 
@@ -179,6 +190,25 @@ class _ItemCard extends StatelessWidget {
                 SecondaryButton(label: 'Annuler le rattrapage', icon: AppIcons.x, onPressed: onCancel),
               ],
             ],
+          ] else if (!app.isEleve(it.svc)) ...[
+            // Succès Group : la date du rattrapage est donnée par le président.
+            const SizedBox(height: 12),
+            Text('Date fixée par le président de Succès Group.', style: AppText.body(14, color: AppColors.neutral700)),
+            const SizedBox(height: 12),
+            PrimaryButton(
+              label: 'Saisir le créneau donné',
+              height: 48,
+              fontSize: 17,
+              onPressed: () async {
+                final slot = await showSlotSheet(
+                  context,
+                  title: 'Rattrapage · ${it.title}',
+                  note: 'Jour et heures donnés par le président.',
+                  initial: Slot(week: currentWeek, day: today().day, start: 1080, end: 1230),
+                );
+                if (slot != null) onPlaceSlot(slot);
+              },
+            ),
           ] else ...[
             if (props.isNotEmpty && props.every((p) => p.week > w0)) ...[
               const SizedBox(height: 12),
@@ -229,6 +259,18 @@ class _ItemCard extends StatelessWidget {
             ],
             const SizedBox(height: 12),
             PrimaryButton(label: 'Ajouter au planning', height: 48, fontSize: 17, onPressed: canPlace ? onPlace : null),
+            const SizedBox(height: 8),
+            SecondaryButton(
+              label: 'Autre créneau…',
+              onPressed: () async {
+                final slot = await showSlotSheet(
+                  context,
+                  title: 'Rattrapage · ${it.title}',
+                  initial: Slot(week: currentWeek, day: today().day, start: 930, end: 1050),
+                );
+                if (slot != null) onPlaceSlot(slot);
+              },
+            ),
           ],
         ],
       ),

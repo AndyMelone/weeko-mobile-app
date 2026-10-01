@@ -2,7 +2,7 @@ name: weeko
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.0+3
+version: 1.0.0+4
 
 environment:
   sdk: ^3.11.5
@@ -19,6 +19,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   http: ^1.6.0
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:

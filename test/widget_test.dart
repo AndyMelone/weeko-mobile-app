@@ -45,7 +45,8 @@ void main() {
       expect(app.students, ['ange', 'adje', 'sondo']);
       expect(app.history['ange'], hasLength(4));
       expect(app.decided.map((s) => s.id), ['s8', 's10']);
-      expect(app.todoCount, 2);
+      // d2 (Ange) à caser ; plus de séance Succès Group « non placée ».
+      expect(app.todoCount, 1);
     });
 
     test('Adjé : jamais le week-end ni deux jours de suite', () async {

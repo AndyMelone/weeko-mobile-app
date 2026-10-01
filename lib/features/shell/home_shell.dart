@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
+import '../../core/utils/formats.dart';
 import '../../core/widgets/app_icon.dart';
 import '../../core/widgets/buttons.dart';
 import '../../logic/app_state.dart';
@@ -12,10 +13,32 @@ import '../pointer/pointer_screen.dart';
 import '../preparer/preparer_screen.dart';
 import '../rattrapages/rattrapages_screen.dart';
 import '../semaine/semaine_screen.dart';
-import '../sites/sites_screen.dart';
 
-class HomeShell extends StatelessWidget {
+class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
+
+  @override
+  State<HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Retour dans l'app : planning rechargé (et pointages hors ligne envoyés).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) context.read<AppState>().load().catchError((_) {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,16 +52,13 @@ class HomeShell extends StatelessWidget {
       AppScreen.pointer => PointerScreen(key: ValueKey(nav.sessionId), sessionId: nav.sessionId!),
       AppScreen.rattrapages => const RattrapagesScreen(),
       AppScreen.eleve => const EleveScreen(),
-      AppScreen.sites => const SitesScreen(),
     };
 
     return PopScope(
       canPop: nav.screen == AppScreen.semaine,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        nav.screen == AppScreen.pointer || nav.screen == AppScreen.sites
-            ? nav.closePointer()
-            : nav.go(AppScreen.semaine);
+        nav.screen == AppScreen.pointer ? nav.closePointer() : nav.go(AppScreen.semaine);
       },
       child: Scaffold(
         backgroundColor: AppColors.bg,
@@ -48,6 +68,7 @@ class HomeShell extends StatelessWidget {
             children: [
               Column(
                 children: [
+                  const _OfflineBanner(),
                   Expanded(child: screen),
                   const _TabBar(),
                 ],
@@ -80,11 +101,7 @@ class _TabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final nav = context.watch<NavState>();
     final todo = context.select<AppState, int>((a) => a.todoCount);
-    final active = switch (nav.screen) {
-      AppScreen.pointer => AppScreen.semaine,
-      AppScreen.sites => AppScreen.preparer,
-      final s => s,
-    };
+    final active = nav.screen == AppScreen.pointer ? AppScreen.semaine : nav.screen;
 
     Widget tab(AppScreen s, AppIcons icon, String label, {int badge = 0}) {
       final on = active == s;
@@ -192,6 +209,40 @@ class _Loading extends StatelessWidget {
                       PrimaryButton(label: 'Réessayer', onPressed: app.retry),
                     ],
                   ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bandeau « Hors ligne » : date du planning affiché, pointages en attente.
+class _OfflineBanner extends StatelessWidget {
+  const _OfflineBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    if (!app.offline) return const SizedBox.shrink();
+    final at = app.cachedAt;
+    final n = app.pendingPointers.length;
+    return Material(
+      color: AppColors.neutral900,
+      child: InkWell(
+        onTap: () => app.load().catchError((_) {}),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Hors ligne${at != null ? ' · planning du ${at.day}/${at.month} à ${fmt(at.hour * 60 + at.minute)}' : ''}'
+                  '${n > 0 ? ' · ${plural(n, 'pointage')} en attente' : ''}',
+                  style: AppText.body(13, color: Colors.white),
+                ),
+              ),
+              Text('Réessayer', style: AppText.body(13, color: AppColors.accent300)),
+            ],
           ),
         ),
       ),

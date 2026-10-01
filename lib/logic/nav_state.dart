@@ -4,8 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/utils/formats.dart';
 
-/// [pointer] et [sites] : écrans sans onglet, avec retour vers [NavState.back].
-enum AppScreen { semaine, preparer, pointer, rattrapages, eleve, sites }
+enum AppScreen { semaine, preparer, pointer, rattrapages, eleve }
 
 class NavState extends ChangeNotifier {
   AppScreen screen = AppScreen.semaine;
@@ -18,6 +17,9 @@ class NavState extends ChangeNotifier {
   String? sessionId;
   String studentId = 'ange';
   bool addingStudent = false;
+
+  /// Onglet Élèves : Succès Group sélectionné au lieu d'un élève.
+  bool showSites = false;
 
   /// Élève en cours de modification (formulaire ouvert), sinon null.
   String? editingStudent;
@@ -60,10 +62,12 @@ class NavState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Réglages Succès Group (sites et classes), ouverts depuis Préparer.
+  /// Réglages Succès Group (sites et classes) : premier choix de l'onglet Élèves.
   void openSites() {
-    back = screen;
-    screen = AppScreen.sites;
+    screen = AppScreen.eleve;
+    showSites = true;
+    addingStudent = false;
+    editingStudent = null;
     notifyListeners();
   }
 
@@ -81,6 +85,7 @@ class NavState extends ChangeNotifier {
 
   void selectStudent(String id) {
     studentId = id;
+    showSites = false;
     addingStudent = false;
     editingStudent = null;
     notifyListeners();
@@ -88,12 +93,14 @@ class NavState extends ChangeNotifier {
 
   void setAdding(bool v) {
     addingStudent = v;
+    if (v) showSites = false;
     editingStudent = null;
     notifyListeners();
   }
 
   void editStudent(String? id) {
     if (id != null) studentId = id;
+    if (id != null) showSites = false;
     editingStudent = id;
     addingStudent = false;
     notifyListeners();

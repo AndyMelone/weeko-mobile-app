@@ -8,6 +8,9 @@ class ApiException implements Exception {
   final String message;
   final int? statusCode;
 
+  /// Pas de réponse du serveur (pas de réseau, délai dépassé).
+  bool get isNetwork => statusCode == null;
+
   @override
   String toString() => message;
 }
@@ -18,6 +21,8 @@ class ApiClient {
       _http = client ?? http.Client();
 
   final String _base;
+
+  String get baseUrl => _base;
   final String apiKey;
   final http.Client _http;
 
@@ -46,7 +51,7 @@ class ApiClient {
       throw ApiException(_message(data, res.statusCode), statusCode: res.statusCode);
     }
     if (data == null && res.bodyBytes.isNotEmpty) {
-      throw const ApiException('Réponse du serveur illisible.');
+      throw ApiException('Réponse du serveur illisible.', statusCode: res.statusCode);
     }
     return data;
   }

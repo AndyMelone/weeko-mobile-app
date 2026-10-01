@@ -10,7 +10,7 @@ import 'support/fonts.dart';
 void main() {
   setUpAll(loadAppFonts);
 
-  testWidgets('Préparer → Gérer les sites et classes → ajouter une classe', (tester) async {
+  testWidgets('Succès Group dans Élèves : ajouter une classe, basculer avec un élève', (tester) async {
     tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -24,7 +24,8 @@ void main() {
     await tester.scrollUntilVisible(find.text('Gérer les sites et classes'), 200);
     await tester.tap(find.text('Gérer les sites et classes'));
     await tester.pump();
-    expect(find.text('Succès Group'), findsOneWidget);
+    // Onglet Élèves, « Succès Group » sélectionné en premier.
+    expect(find.text('Ajouter un site'), findsOneWidget);
 
     await tester.tap(find.text('+ Ajouter une classe').first);
     await tester.pumpAndSettle();
@@ -36,10 +37,13 @@ void main() {
     expect(post.url.path, '/api/classes');
     expect((jsonDecode(post.body) as Map)['name'], 'Première D');
 
-    // Retour : on revient sur Préparer.
-    await tester.tap(find.bySemanticsLabel('Retour'));
+    // Choisir un élève quitte Succès Group, le chip y revient.
+    await tester.tap(find.text('Adjé'));
     await tester.pump();
-    expect(find.text('Gérer les sites et classes'), findsOneWidget);
+    expect(find.text('Ajouter un site'), findsNothing);
+    await tester.tap(find.text('Succès Group'));
+    await tester.pump();
+    expect(find.text('Ajouter un site'), findsOneWidget);
     await tester.pump(const Duration(seconds: 4));
   });
 }
