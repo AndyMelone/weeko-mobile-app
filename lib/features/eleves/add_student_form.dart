@@ -7,6 +7,7 @@ import '../../core/widgets/buttons.dart';
 import '../../core/widgets/inputs.dart';
 import '../shared/screen_header.dart';
 import '../shared/session_sheets.dart';
+import '../../data/models/models.dart';
 import '../../logic/app_state.dart';
 
 /// Formulaire élève : ajout, ou modification si [initial] est fourni.
@@ -192,8 +193,20 @@ class _AddStudentFormState extends State<AddStudentForm> {
           ),
         ),
         FieldLabel(
-          label: 'Indisponibilités (jour et heures)',
-          child: BlocksEditor(blocks: _f.unavailable, onChanged: (b) => setState(() => _f.unavailable = b)),
+          label: 'Emploi du temps (heures de cours)',
+          child: _ScheduleEditor(
+            blocks: _f.unavailable.where((b) => b.isSchool).toList(),
+            onChanged: (school) =>
+                setState(() => _f.unavailable = [...school, ..._f.unavailable.where((b) => !b.isSchool)]),
+          ),
+        ),
+        FieldLabel(
+          label: 'Autres indisponibilités (jour et heures)',
+          child: BlocksEditor(
+            blocks: _f.unavailable.where((b) => !b.isSchool).toList(),
+            onChanged: (other) =>
+                setState(() => _f.unavailable = [..._f.unavailable.where((b) => b.isSchool), ...other]),
+          ),
         ),
         FieldLabel(
           label: 'Tarif',
@@ -250,6 +263,93 @@ class _AddStudentFormState extends State<AddStudentForm> {
             ),
           ],
         ),
+      ],
+    );
+  }
+}
+
+/// Emploi du temps scolaire : pour chaque jour, cours ou non, de … à ….
+class _ScheduleEditor extends StatelessWidget {
+  const _ScheduleEditor({required this.blocks, required this.onChanged});
+
+  /// Plages « ecole » (une par jour au plus).
+  final List<TimeBlock> blocks;
+  final ValueChanged<List<TimeBlock>> onChanged;
+
+  TimeBlock? _of(int d) => blocks.where((b) => b.day == d).firstOrNull;
+
+  void _put(int d, TimeBlock? b) => onChanged([...blocks.where((x) => x.day != d), ?b]..sort((x, y) => x.day - y.day));
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var d = 0; d < 7; d++)
+          Container(
+            constraints: const BoxConstraints(minHeight: 52),
+            padding: const EdgeInsets.fromLTRB(10, 4, 6, 4),
+            decoration: BoxDecoration(
+              border: Border(
+                left: const BorderSide(color: AppColors.divider),
+                right: const BorderSide(color: AppColors.divider),
+                top: const BorderSide(color: AppColors.divider),
+                bottom: d == 6 ? const BorderSide(color: AppColors.divider) : BorderSide.none,
+              ),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 44,
+                  child: Text(dayNamesShort[d], style: AppText.body(15, weight: FontWeight.w500)),
+                ),
+                Expanded(
+                  child: _of(d) == null
+                      ? Text('Pas cours', style: AppText.body(14, color: AppColors.neutral600))
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: TimeField(
+                                value: toHhMm(_of(d)!.start),
+                                onChanged: (v) =>
+                                    _put(d, TimeBlock(day: d, start: parseTime(v)!, end: _of(d)!.end, kind: 'ecole')),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Text('–', style: AppText.body(16)),
+                            ),
+                            Expanded(
+                              child: TimeField(
+                                value: toHhMm(_of(d)!.end),
+                                onChanged: (v) =>
+                                    _put(d, TimeBlock(day: d, start: _of(d)!.start, end: parseTime(v)!, kind: 'ecole')),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+                const SizedBox(width: 6),
+                GhostButton(
+                  label: _of(d) == null ? 'Cours' : 'Retirer',
+                  onPressed: () => _put(
+                    d,
+                    _of(d) != null
+                        ? null
+                        // Par défaut : 7h30–17h ; mercredi et samedi 7h30–12h.
+                        : TimeBlock(day: d, start: 450, end: d == 2 || d == 5 ? 720 : 1020, kind: 'ecole'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        if (blocks.any((b) => b.end <= b.start))
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text('La fin des cours doit suivre le début.', style: AppText.body(12, color: AppColors.neutral700)),
+          ),
+        const SizedBox(height: 4),
+        Text('Aucune séance n’est placée pendant les cours.', style: AppText.body(12, color: AppColors.neutral700)),
       ],
     );
   }

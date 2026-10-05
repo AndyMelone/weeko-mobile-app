@@ -20,17 +20,33 @@ class FixedSlot {
 }
 
 class TimeBlock {
-  const TimeBlock({required this.day, required this.start, required this.end});
+  const TimeBlock({required this.day, required this.start, required this.end, this.kind = 'autre'});
 
   final int day;
   final int start;
   final int end;
+
+  /// « ecole » : emploi du temps scolaire ; « autre » : indisponibilité.
+  final String kind;
+
+  bool get isSchool => kind == 'ecole';
 
   String get label => start <= 0
       ? 'avant ${fmt(end)}'
       : end >= 1440
       ? 'après ${fmt(start)}'
       : range(start, end);
+}
+
+/// Emploi du temps : « lun., mar., jeu. 7h30–17h · mer. 7h30–12h ».
+String scheduleLabel(List<TimeBlock> blocks) {
+  final groups = <String, List<int>>{};
+  for (final b in [...blocks]..sort((x, y) => x.day - y.day)) {
+    groups.putIfAbsent(range(b.start, b.end), () => []).add(b.day);
+  }
+  return [
+    for (final e in groups.entries) '${e.value.map((d) => dayNamesShort[d].toLowerCase()).join(', ')} ${e.key}',
+  ].join(' · ');
 }
 
 class Service {

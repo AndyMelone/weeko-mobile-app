@@ -504,6 +504,10 @@ class AppState extends ChangeNotifier {
       if (week(it.week).any((s) => s.svc == it.svc && s.status != SessionStatus.manquee && (s.day - d).abs() <= 1)) {
         return '${S.first} a déjà cours ce jour-là, la veille ou le lendemain.';
       }
+      final school = S.unavailable.where((b) => b.isSchool && b.day == d).toList();
+      if (school.isNotEmpty) {
+        return '${S.first} a cours ${school.map((b) => 'de ${fmt(b.start)} à ${fmt(b.end)}').join(' et ')} ce jour-là : pas de créneau de 2 h libre.';
+      }
       final blocks = blocksOn(it.svc, d);
       if (blocks.isNotEmpty) {
         return 'Pas de créneau de 2 h libre ce jour-là (indisponible ${blocks.map((b) => b.label).join(', ')}).';
@@ -895,6 +899,7 @@ class AppState extends ChangeNotifier {
         '${S.notBefore != null ? ' · pas avant ${fmt(S.notBefore!)}' : ''}'
         '${S.notAfter != null ? ' · fini avant ${fmt(S.notAfter!)}' : ''}'
         '${S.fixed.isNotEmpty ? ' · fixe le ${S.fixed.map((f) => '${dayNamesLower[f.day]} ${fmt(f.start)}').join(', ')}' : ''}'
-        '${S.unavailable.isNotEmpty ? ' · indisponible le ${S.unavailable.map((b) => '${dayNamesLower[b.day]} ${b.label}').join(', ')}' : ''}';
+        '${S.unavailable.any((b) => b.isSchool) ? ' · cours ${scheduleLabel(S.unavailable.where((b) => b.isSchool).toList())}' : ''}'
+        '${S.unavailable.any((b) => !b.isSchool) ? ' · indisponible le ${S.unavailable.where((b) => !b.isSchool).map((b) => '${dayNamesLower[b.day]} ${b.label}').join(', ')}' : ''}';
   }
 }

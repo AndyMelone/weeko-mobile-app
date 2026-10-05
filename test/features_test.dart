@@ -89,6 +89,33 @@ void main() {
     expect(find.text('Jour et heure fixés cette semaine'), findsOneWidget);
   });
 
+  testWidgets('emploi du temps : Modifier l’élève → « Cours » le lundi → envoyé avec le type école', (tester) async {
+    final api = FakeApi();
+    await openApp(tester, api);
+    await tester.tap(find.text('Élèves'));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Sondo'));
+    await tester.longPress(find.text('Sondo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Modifier'));
+    await tester.pumpAndSettle();
+    final vertical = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first;
+    final cours = find.text('Cours').first; // lundi
+    await tester.scrollUntilVisible(cours, 200, scrollable: vertical);
+    await tester.tap(cours);
+    await tester.pump();
+    final save = find.text('Enregistrer');
+    await tester.scrollUntilVisible(save, 200, scrollable: vertical);
+    await tester.tap(save);
+    await tester.pump();
+    await tester.pump();
+    expect(api.writes, ['PATCH /api/students/sondo']);
+    expect(bodyOf(api, '/api/students/sondo')['unavailable'], [
+      {'day': 0, 'start': '07:30', 'end': '17:00', 'kind': 'ecole'},
+    ]);
+    await tester.pump(const Duration(seconds: 4));
+  });
+
   group('AppState', () {
     test('séance commencée ou non', () async {
       final app = await loaded(FakeApi());
@@ -115,8 +142,8 @@ void main() {
       ]);
       expect(bodyOf(api, '/api/settings'), {
         'unavailable': [
-          {'day': 6, 'start': '00:00', 'end': '12:00'},
-          {'day': 5, 'start': '12:00', 'end': '23:59'},
+          {'day': 6, 'start': '00:00', 'end': '12:00', 'kind': 'autre'},
+          {'day': 5, 'start': '12:00', 'end': '23:59', 'kind': 'autre'},
         ],
       });
       expect(app.calendarUrl, isNull);
@@ -178,6 +205,23 @@ void main() {
       expect(cold.pendingPointers, isEmpty);
       expect(api.writes, ['POST /api/sessions/s1/pointer']);
       cold.dispose();
+    });
+
+    test('emploi du temps : jamais pendant les cours, règle et raison', () async {
+      final state = jsonDecode(stateFixture) as Map<String, dynamic>;
+      for (final s in state['services'] as List) {
+        if (s['id'] == 'ange') {
+          s['unavailable'] = [
+            {'day': 0, 'start': 450, 'end': 1020, 'kind': 'ecole'},
+            {'day': 4, 'start': 450, 'end': 1020, 'kind': 'ecole'},
+            {'day': 2, 'start': 450, 'end': 720, 'kind': 'ecole'},
+          ];
+        }
+      }
+      final app = await loaded(FakeApi(respond: (r) => r.url.path == '/api/state' ? state : null));
+      // Lundi : sortie du travail 15h, cours jusqu'à 17h → 17h–19h.
+      expect(app.slotOn('ange', 0, [], 0)?.start, 1020);
+      expect(app.ruleOf(app.svc('ange')), contains('cours lun., ven. 7h30–17h · mer. 7h30–12h'));
     });
   });
 }

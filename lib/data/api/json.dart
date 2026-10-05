@@ -106,7 +106,8 @@ HistoryEntry historyFromJson(Json j) =>
     HistoryEntry(date: j['date'], time: j['time'], status: SessionStatus.values.byName(j['status']), motif: j['motif']);
 
 List<TimeBlock> blocksFromJson(dynamic list) => [
-  for (final b in (list as List?) ?? const []) TimeBlock(day: b['day'], start: b['start'], end: b['end']),
+  for (final b in (list as List?) ?? const [])
+    TimeBlock(day: b['day'], start: b['start'], end: b['end'], kind: b['kind'] ?? 'autre'),
 ];
 
 Payment paymentFromJson(Json j) =>
@@ -116,5 +117,6 @@ Json slotToJson(Slot s) => {'week': s.week, 'day': s.day, 'start': s.start, 'end
 
 /// Fin de journée (1440) envoyée en « 23:59 ».
 List<Json> blocksToJson(List<TimeBlock> blocks) => [
-  for (final b in blocks) {'day': b.day, 'start': toHhMm(b.start), 'end': b.end >= 1440 ? '23:59' : toHhMm(b.end)},
+  for (final b in blocks)
+    {'day': b.day, 'start': toHhMm(b.start), 'end': b.end >= 1440 ? '23:59' : toHhMm(b.end), 'kind': b.kind},
 ];
